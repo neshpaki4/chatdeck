@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>ChatDeck — Twitch Chat для OBS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Rubik:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0d11;
+  --surface: #16161c;
+  --border: #26262f;
+  --border-hover: #3a3a46;
+  --text: #f0f0f4;
+  --muted: #8b8b98;
+  --faint: #55555f;
+  --accent: #9147ff;
+  --accent-soft: rgba(145,71,255,0.13);
+  --green: #2ee6a8;
+  --red: #ff5c5c;
+  --amber: #ffb454;
+  --display: 'Unbounded', sans-serif;
+  --body: 'Rubik', 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', 'Consolas', monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--text); font-family: var(--body);
+  height: 100vh; overflow: hidden; display: flex; flex-direction: column;
+}
+
+/* --- фон: свечения + точечная сетка --- */
+.bg {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(900px 520px at -8% -18%, rgba(145,71,255,0.14), transparent 62%),
+    radial-gradient(760px 520px at 108% 118%, rgba(46,230,168,0.07), transparent 60%);
+}
+.bg::after {
+  content: ''; position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+header, main, footer { position: relative; z-index: 1; }
+
+/* --- header --- */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 28px; border-bottom: 1px solid var(--border);
+  background: rgba(13,13,17,0.85);
+  -webkit-app-region: drag;
+}
+header button, header .status-pill { -webkit-app-region: no-drag; }
+.brand { display: flex; align-items: center; gap: 13px; }
+.brand-name { font-family: var(--display); font-weight: 900; font-size: 18px; letter-spacing: .02em; }
+.brand-name span { color: var(--accent); }
+.brand-sub { font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: .05em; }
+
+.status-pill {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 15px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface);
+  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  color: var(--muted); transition: all .3s;
+}
+.status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex-shrink: 0; }
+.status-pill.live { border-color: rgba(46,230,168,.45); color: var(--green); background: rgba(46,230,168,.08); }
+.status-pill.live .dot { background: var(--green); animation: pulseG 1.6s infinite; }
+.status-pill.connecting { border-color: rgba(255,180,84,.45); color: var(--amber); background: rgba(255,180,84,.07); }
+.status-pill.connecting .dot { background: var(--amber); animation: pulseA 1s infinite; }
+.status-pill.off { border-color: rgba(255,92,92,.4); color: var(--red); background: rgba(255,92,92,.06); }
+.status-pill.off .dot { background: var(--red); }
+@keyframes pulseG { 0% { box-shadow: 0 0 0 0 rgba(46,230,168,.5); } 70% { box-shadow: 0 0 0 7px rgba(46,230,168,0); } 100% { box-shadow: 0 0 0 0 rgba(46,230,168,0); } }
+@keyframes pulseA { 0% { box-shadow: 0 0 0 0 rgba(255,180,84,.5); } 70% { box-shadow: 0 0 0 6px rgba(255,180,84,0); } 100% { box-shadow: 0 0 0 0 rgba(255,180,84,0); } }
+
+/* --- layout --- */
+main {
+  flex: 1; overflow-y: auto; padding: 22px 28px;
+  display: grid; grid-template-columns: minmax(0,5fr) minmax(0,4fr); gap: 16px;
+}
+main::-webkit-scrollbar { width: 8px; }
+main::-webkit-scrollbar-thumb { background: #2a2a33; border-radius: 4px; }
+.col-left { display: flex; flex-direction: column; gap: 14px; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 17px 19px; transition: border-color .25s;
+}
+.card:hover { border-color: var(--border-hover); }
+.card-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 12px;
+}
+
+/* --- URL --- */
+.url-box {
+  background: #0a0a0e; border: 1px solid var(--border);
+  border-radius: 8px; padding: 11px 13px;
+  transition: border-color .25s;
+}
+.url-box:hover { border-color: var(--border-hover); }
+.url-box code {
+  display: block; width: 100%;
+  font-family: var(--mono); font-size: 13px; line-height: 1.5;
+  color: var(--green); user-select: all;
+  word-break: break-all; overflow-wrap: anywhere;
+}
+
+/* ряд действий под адресом */
+.url-actions { display: flex; gap: 10px; margin-top: 10px; }
+.url-actions .btn {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+}
+.btn .bi { width: 15px; height: 15px; flex-shrink: 0; }
+.url-box code { flex: 1; font-family: var(--mono); font-size: 15px; color: var(--green); user-select: all; }
+.url-hint { font-size: 11px; color: var(--faint); margin-top: 9px; }
+.url-hint b { color: var(--muted); font-weight: 600; }
+
+/* --- кнопки --- */
+.btn {
+  font-family: var(--body); font-weight: 600; font-size: 13px;
+  border-radius: 7px; padding: 10px 15px; border: 1px solid transparent;
+  cursor: pointer; transition: transform .12s, background .2s, border-color .2s, box-shadow .2s, color .2s;
+}
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #a063ff; box-shadow: 0 4px 20px rgba(145,71,255,.4); }
+.btn-primary.done { background: var(--green); color: #06281c; }
+.btn-ghost { background: transparent; color: var(--text); border-color: var(--border); }
+.btn-ghost:hover { border-color: var(--accent); color: #cbb0ff; background: var(--accent-soft); }
+
+/* --- статистика --- */
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 13px 16px; transition: border-color .25s; }
+.stat:hover { border-color: var(--border-hover); }
+.stat-num { font-family: var(--display); font-weight: 700; font-size: 21px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: .14em; color: var(--muted); margin-top: 5px; }
+.stat-num.bump { animation: bump .35s ease; }
+@keyframes bump { 40% { transform: scale(1.16); color: var(--green); } }
+
+/* --- действия --- */
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.actions .btn { flex: 1; min-width: 130px; }
+
+/* --- предпросмотр --- */
+.card.preview { display: flex; flex-direction: column; min-height: 0; }
+.preview-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.preview-meta { font-size: 10px; color: var(--faint); font-family: var(--mono); }
+.preview-frame {
+  flex: 1; min-height: 260px; position: relative;
+  border-radius: 8px; overflow: hidden; border: 1px solid var(--border);
+  background-color: #101015;
+  background-image:
+    linear-gradient(45deg, #17171d 25%, transparent 25%),
+    linear-gradient(-45deg, #17171d 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #17171d 75%),
+    linear-gradient(-45deg, transparent 75%, #17171d 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+}
+.preview-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+footer {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 11px 28px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--faint);
+}
+/* --- конструктор стиля оверлея --- */
+.ctl-grid { display: flex; flex-direction: column; gap: 14px; }
+.ctl label {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 7px;
+}
+.ctl label span { color: var(--accent); font-family: var(--mono); font-weight: 600; }
+
+.ctl-select {
+  width: 100%; padding: 9px 12px; border-radius: 7px;
+  border: 1px solid var(--border); background: #0a0a0e; color: var(--text);
+  font-family: var(--body); font-size: 13px; outline: none; cursor: pointer;
+  transition: border-color .2s;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+}
+
+.ctl-select:hover { border-color: var(--border-hover); }
+.ctl-select:focus { border-color: var(--accent); }
+
+
+
+.ctl-input {
+  width: 100%; padding: 9px 12px; border-radius: 7px;
+  border: 1px solid var(--border); background: #0a0a0e; color: var(--text);
+  font-family: var(--body); font-size: 13px; outline: none;
+  transition: border-color .2s;
+}
+.ctl-input::placeholder { color: var(--faint); }
+.ctl-input:hover { border-color: var(--border-hover); }
+.ctl-input:focus { border-color: var(--accent); }
+
+.ctl-range {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
+  border-radius: 999px; background: #2a2a33; outline: none; cursor: pointer;
+}
+.ctl-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--accent); border: 3px solid #16161c;
+  box-shadow: 0 0 0 1px var(--accent); transition: transform .12s, box-shadow .2s;
+}
+.ctl-range::-webkit-slider-thumb:hover { transform: scale(1.15); box-shadow: 0 0 0 1px var(--accent), 0 0 12px rgba(145,71,255,.6); }
+.ctl-range:active::-webkit-slider-thumb { transform: scale(1.05); }
+
+.ctl-row { flex-direction: row; align-items: center; justify-content: space-between; }
+.ctl-row label { margin: 0; }
+
+/* кастомный тумблер */
+.switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+.ctl-row .switch { top: 8px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .track {
+  position: absolute; inset: 0; border-radius: 999px; cursor: pointer;
+  background: #2a2a33; border: 1px solid var(--border); transition: background .25s, border-color .25s;
+}
+.switch .track::before {
+  content: ''; position: absolute; height: 16px; width: 16px; left: 3px; top: 3px;
+  border-radius: 50%; background: var(--muted); transition: transform .25s cubic-bezier(.3,1.3,.5,1), background .25s;
+}
+.switch input:checked + .track { background: var(--accent-soft); border-color: var(--accent); }
+.switch input:checked + .track::before { transform: translateX(18px); background: var(--accent); }
+
+/* мини-превью строки на шахматной подложке */
+.style-preview-frame {
+  margin-top: 16px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border);
+  padding: 12px; min-height: 64px; display: flex; align-items: flex-end;
+  background-color: #101015;
+  background-image:
+    linear-gradient(45deg, #17171d 25%, transparent 25%),
+    linear-gradient(-45deg, #17171d 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #17171d 75%),
+    linear-gradient(-45deg, transparent 75%, #17171d 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+.style-preview-line {
+  border-radius: 6px; color: #fff; line-height: 1.5;
+  word-break: normal; overflow-wrap: break-word;
+  transition: font-size .12s ease, background .2s, padding .2s;
+  text-shadow: 0 1px 2px rgba(0,0,0,.9);
+}
+/* --- карточка-триггер конструктора --- */
+.trigger-card {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px; cursor: pointer; text-align: left; color: inherit;
+  font-family: var(--body); transition: border-color .25s, transform .15s, box-shadow .25s, background .25s;
+}
+.trigger-card:hover {
+  border-color: var(--accent); transform: translateY(-1px);
+  box-shadow: 0 8px 26px rgba(0,0,0,.35), 0 0 0 1px rgba(145,71,255,.18);
+  background: #1a1a22;
+}
+.trigger-card:active { transform: translateY(0); }
+.trigger-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.trigger-ico {
+  flex-shrink: 0; width: 40px; height: 40px; border-radius: 9px;
+  display: grid; place-items: center;
+  background: var(--accent-soft); border: 1px solid rgba(145,71,255,.3);
+  transition: transform .3s cubic-bezier(.3,1.4,.5,1);
+}
+.trigger-card:hover .trigger-ico { transform: rotate(-8deg) scale(1.06); }
+.trigger-ico svg { width: 20px; height: 20px; }
+.trigger-txt { flex: 1; min-width: 0; }
+.trigger-title { font-size: 13px; font-weight: 700; letter-spacing: .02em; }
+.trigger-sum {
+  margin-top: 3px; font-size: 11px; color: var(--muted);
+  font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.trigger-chev { flex-shrink: 0; color: var(--faint); transition: transform .25s, color .25s; }
+.trigger-card:hover .trigger-chev { transform: translateX(3px); color: var(--accent); }
+
+/* --- саммари-чип в модалке --- */
+.modal-chip {
+  display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--muted);
+}
+.modal-chip .seg {
+  padding: 3px 9px; border-radius: 999px; background: #0e0e13;
+  border: 1px solid var(--border); transition: color .2s, border-color .2s;
+}
+.modal-chip .seg.on { color: var(--green); border-color: rgba(46,230,168,.35); }
+.modal-chip .seg.off { color: var(--faint); }
+
+/* --- секции контролов --- */
+.ctl-section + .ctl-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.ctl-section h3 {
+  font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--faint); margin-bottom: 13px;
+}
+.ctl.disabled { opacity: .38; pointer-events: none; filter: saturate(.4); }
+
+/* --- модальное окно --- */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(6,6,9,.66); -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .28s ease, visibility .28s ease;
+}
+.modal-backdrop.open { opacity: 1; visibility: visible; pointer-events: auto; }
+.modal-card {
+  width: 480px; max-width: 100%; max-height: 88vh; display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border-hover); border-radius: 14px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(145,71,255,.08);
+  transform: translateY(16px) scale(.97); opacity: 0;
+  transition: transform .34s cubic-bezier(.2,.9,.25,1), opacity .3s ease;
+}
+.modal-backdrop.open .modal-card { transform: none; opacity: 1; }
+.modal-head {
+  position: sticky; top: 0; z-index: 2; padding: 18px 22px 14px;
+  background: rgba(22,22,28,.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border); border-radius: 14px 14px 0 0;
+}
+.modal-head-row { display: flex; align-items: center; gap: 12px; }
+.modal-head-ico {
+  width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; display: grid; place-items: center;
+  background: var(--accent-soft); border: 1px solid rgba(145,71,255,.3);
+}
+.modal-head-ico svg { width: 18px; height: 18px; }
+.modal-head h2 { font-family: var(--display); font-size: 16px; font-weight: 700; letter-spacing: .01em; }
+.modal-close {
+  margin-left: auto; width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  cursor: pointer; display: grid; place-items: center; transition: all .2s;
+}
+.modal-close:hover { border-color: var(--red); color: var(--red); background: rgba(255,92,92,.08); transform: rotate(90deg); }
+.modal-body { padding: 20px 22px; overflow-y: auto; }
+.modal-body::-webkit-scrollbar { width: 8px; }
+.modal-body::-webkit-scrollbar-thumb { background: #2a2a33; border-radius: 4px; }
+.modal-foot {
+  display: flex; align-items: center; gap: 10px; padding: 14px 22px;
+  border-top: 1px solid var(--border); background: rgba(22,22,28,.6);
+  border-radius: 0 0 14px 14px;
+}
+.modal-foot .btn-reset { margin-right: auto; }
+/* превью redeem-строки в модалке */
+.style-preview-frame { gap: 8px; flex-direction: column; align-items: stretch; }
+.style-preview-line.redeem-message {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  border-left: 3px solid #b388ff;
+}
+.style-preview-line .redeem-ico { width: 20px; height: 20px; flex-shrink: 0; }
+.style-preview-line .redeem-text { min-width: 0; }
+.pv-reward { color: #d9c4ff; font-weight: 700; }
+.pv-cost { color: #ffd479; font-weight: 800; }
+.pv-verb { color: #cfcfd6; }
+
+#pvRedeemIco { flex-shrink: 0; display: inline-flex; }
+/* --- действия в шапке --- */
+.header-actions { display: flex; gap: 8px; -webkit-app-region: no-drag; }
+.hbtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: transparent; border: 1px solid var(--border); color: var(--muted);
+  border-radius: 7px; padding: 7px 12px; font-size: 12px; font-weight: 600;
+  font-family: var(--body); cursor: pointer; transition: all .2s;
+}
+.hbtn:hover { border-color: var(--accent); color: #cbb0ff; background: var(--accent-soft); }
+.hbtn-danger:hover { border-color: var(--red); color: var(--red); background: rgba(255,92,92,.08); }
+
+/* --- компактная URL-строка (не кричит) --- */
+.url-strip {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 8px 12px; transition: border-color .25s;
+}
+.url-strip:hover { border-color: var(--border-hover); }
+.url-strip code {
+  flex: 1; min-width: 0; font-family: var(--mono); font-size: 11px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: all;
+}
+.url-strip-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.btn-sm { padding: 6px 10px; font-size: 12px; }
+.btn-sm .bi { width: 13px; height: 13px; }
+
+/* --- шапка предпросмотра со статусом --- */
+.preview-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+.preview-head-right { display: flex; align-items: center; gap: 10px; }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+
+<header>
+  <div class="brand">
+    <svg width="36" height="36" viewBox="0 0 32 32">
+      <rect x="1" y="1" width="30" height="30" rx="8" fill="#9147ff"/>
+      <rect x="7" y="8" width="18" height="13" rx="4" fill="#fff"/>
+      <path d="M11 21 L11 26 L16 21 Z" fill="#fff"/>
+      <circle cx="12" cy="14.5" r="1.6" fill="#9147ff"/>
+      <circle cx="16" cy="14.5" r="1.6" fill="#9147ff"/>
+      <circle cx="20" cy="14.5" r="1.6" fill="#9147ff"/>
+    </svg>
+    <div>
+      <div class="brand-name">CHAT<span>DECK</span></div>
+      <div class="brand-sub">Twitch-чат · 7TV · для OBS</div>
+    </div>
+  </div>
+    <div class="header-actions">
+    <button class="hbtn" id="settingsBtn" title="Настройки">⚙<span>Настройки</span></button>
+    <button class="hbtn" id="restartBtn" title="Перезапустить чат">↻<span>Перезапустить</span></button>
+    <button class="hbtn hbtn-danger" id="quitBtn" title="Выход">✕<span>Выход</span></button>
+  </div>
+</header>
+</header>
+
+<main>
+  <div class="col-left">
+
+  <div class="stats">
+      <div class="stat"><div class="stat-num" id="statChannel">—</div><div class="stat-label">Канал</div></div>
+      <div class="stat"><div class="stat-num" id="statPort">—</div><div class="stat-label">Порт</div></div>
+      <div class="stat"><div class="stat-num" id="statMsgs">0</div><div class="stat-label">Сообщений</div></div>
+      <div class="stat"><div class="stat-num" id="statUptime">0:00</div><div class="stat-label">Аптайм</div></div>
+    </div>
+  <div class="url-strip" title="URL для OBS">
+      <code id="obsUrl">http://localhost:—</code>
+      <div class="url-strip-actions">
+        <button class="btn btn-ghost btn-sm" id="openBtn">
+          <svg class="bi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5"/><path d="M19 5 10 14"/><path d="M19 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"/></svg>
+          <span class="bl">Открыть</span>
+        </button>
+        <button class="btn btn-primary btn-sm" id="copyBtn">
+          <svg class="bi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          <span class="bl">Копировать</span>
+        </button>
+      </div>
+    </div>
+  <div class="trigger-card" id="openStyleBtn" tabindex="0" role="button" aria-label="Настроить стиль оверлея">
+      <span class="trigger-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#cbb0ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3a9 9 0 1 0 0 18c1 0 1.6-.8 1.6-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.1 0-.9.8-1.6 1.7-1.6H16a5 5 0 0 0 5-5c0-3.9-4-7.4-9-7.4Z"/>
+          <circle cx="7.5" cy="11" r="1.1" fill="#cbb0ff" stroke="none"/>
+          <circle cx="10.5" cy="7.5" r="1.1" fill="#cbb0ff" stroke="none"/>
+          <circle cx="14.5" cy="7.5" r="1.1" fill="#cbb0ff" stroke="none"/>
+          <circle cx="17" cy="11" r="1.1" fill="#cbb0ff" stroke="none"/>
+        </svg>
+      </span>
+      <span class="trigger-txt">
+        <span class="trigger-title">Стиль оверлея</span>
+        <span class="trigger-sum" id="trigSummary">Segoe UI · 14px · плашка · 30с</span>
+      </span>
+      <span class="trigger-chev">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+      </span>
+    </div>
+
+
+  </div>
+
+  <section class="card preview">
+    <div class="preview-head">
+      <span class="card-label" style="margin:0">Предпросмотр оверлея</span>
+      <div class="preview-head-right">
+        <div class="status-pill connecting" id="statusPill">
+          <span class="dot"></span><span id="statusText">Запуск…</span>
+        </div>
+        <span class="preview-meta" id="previewMeta">—</span>
+      </div>
+    </div>
+    <div class="preview-frame">
+      <iframe id="preview"></iframe>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>Закрытие окна сворачивает в трей — сервер продолжает работать</span>
+  <span>v1.3.0</span>
+</footer>
+
+<div class="modal-backdrop" id="styleModal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="Стиль оверлея">
+    <div class="modal-head">
+      <div class="modal-head-row">
+        <span class="modal-head-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#cbb0ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a9 9 0 1 0 0 18c1 0 1.6-.8 1.6-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.1 0-.9.8-1.6 1.7-1.6H16a5 5 0 0 0 5-5c0-3.9-4-7.4-9-7.4Z"/>
+            <circle cx="7.5" cy="11" r="1.1" fill="#cbb0ff" stroke="none"/>
+            <circle cx="10.5" cy="7.5" r="1.1" fill="#cbb0ff" stroke="none"/>
+            <circle cx="14.5" cy="7.5" r="1.1" fill="#cbb0ff" stroke="none"/>
+            <circle cx="17" cy="11" r="1.1" fill="#cbb0ff" stroke="none"/>
+          </svg>
+        </span>
+        <h2>Стиль оверлея</h2>
+        <button class="modal-close" id="modalClose" aria-label="Закрыть">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <div class="modal-chip" id="modalSummary"></div>
+    </div>
+
+    <div class="modal-body">
+      <div class="ctl-section">
+        <h3>Типографика</h3>
+        <div class="ctl-grid">
+          <div class="ctl">
+            <label for="ovFont">Шрифт</label>
+            <select id="ovFont" class="ctl-select">
+              <option value="Segoe UI">Segoe UI</option>
+              <option value="Arial">Arial</option>
+              <option value="Verdana">Verdana</option>
+              <option value="Tahoma">Tahoma</option>
+              <option value="Trebuchet MS">Trebuchet MS</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Times New Roman">Times New Roman</option>
+              <option value="Courier New">Courier New</option>
+              <option value="Consolas">Consolas</option>
+              <option value="Impact">Impact</option>
+              <option value="Comic Sans MS">Comic Sans MS</option>
+              <option value="system-ui">system-ui</option>
+            </select>
+          </div>
+          <div class="ctl">
+            <label for="ovSize">Размер <span id="ovSizeVal">14px</span></label>
+            <input type="range" id="ovSize" class="ctl-range" min="10" max="32" step="1" value="14">
+          </div>
+          <div class="ctl">
+            <label for="ovEmote">Размер эмодзи <span id="ovEmoteVal">20px</span></label>
+            <input type="range" id="ovEmote" class="ctl-range" min="12" max="40" step="2" value="20">
+          </div>
+        </div>
+      </div>
+
+      <div class="ctl-section">
+        <h3>Оформление</h3>
+        <div class="ctl-grid">
+          <div class="ctl ctl-row">
+            <label for="ovBg">Плашка под сообщением</label>
+            <label class="switch"><input type="checkbox" id="ovBg" checked><span class="track"></span></label>
+          </div>
+          <div class="ctl">
+            <label for="ovPoints">Название баллов</label>
+            <input type="text" id="ovPoints" class="ctl-input" placeholder="баллов" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+      </div>
+
+      <div class="ctl-section">
+        <h3>Поведение</h3>
+        <div class="ctl-grid">
+          <div class="ctl ctl-row">
+            <label for="ovHide">Автоскрытие сообщений</label>
+            <label class="switch"><input type="checkbox" id="ovHide" checked><span class="track"></span></label>
+          </div>
+          <div class="ctl" id="ovHideWrap">
+            <label for="ovHideAfter">Исчезают через <span id="ovHideAfterVal">30с</span></label>
+            <input type="range" id="ovHideAfter" class="ctl-range" min="5" max="120" step="5" value="30">
+          </div>
+        </div>
+      </div>
+
+      <div class="style-preview-frame">
+        <div id="ovPreview" class="style-preview-line"><b style="color:#a78bff">neshpak</b><span style="color:#fff">: </span>привет чат <img id="pvEmote" class="pv-emote" src="https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/2.0" alt=""> как дела?</div>
+        <div id="ovPreviewRedeem" class="style-preview-line redeem-message">
+          <span id="pvRedeemIco"></span>
+          <span class="redeem-text"><b style="color:#a78bff">neshpak</b> <span class="pv-verb">использовал</span> <span class="pv-reward">Hydrate</span> <span class="pv-verb">за</span> <span class="pv-cost">500</span> <span id="pvPoints">баллов</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-reset" id="modalReset">Сбросить</button>
+      <button class="btn btn-primary" id="modalDone">Готово</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let lastMsgs = 0;
+// ==================== конструктор стиля оверлея ====================
+let currentObsUrl = '';
+const DEFAULTS = { font: 'Segoe UI', size: 14, bg: true, hide: true, hideAfter: 30, points: '', emote: 20 };
+const $ovFont = $('ovFont');
+const $ovSize = $('ovSize');
+const $ovSizeVal = $('ovSizeVal');
+const $ovBg = $('ovBg');
+const $ovHide = $('ovHide');
+const $ovHideAfter = $('ovHideAfter');
+const $ovHideAfterVal = $('ovHideAfterVal');
+const $ovHideWrap = $('ovHideWrap');
+const $ovPreview = $('ovPreview');
+const $ovPoints = $('ovPoints');
+const $pvPoints = $('pvPoints');
+const $ovEmote = $('ovEmote');
+const $ovEmoteVal = $('ovEmoteVal');
+const $trigSummary = $('trigSummary');
+const $modalSummary = $('modalSummary');
+const $styleModal = $('styleModal');
+// Иконка превью вставляется из JS-строки, чтобы угловые скобки SVG
+// не терялись при копировании HTML (именно из-за этого в превью лез текст path d="...").
+const PREVIEW_ICON =
+  '<svg class="redeem-ico" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+  '<path d="M12 2 L20 9 L12 22 L4 9 Z" fill="#7c3aed"/>' +
+  '<path d="M12 2 L20 9 L12 12 Z" fill="#a78bfa"/>' +
+  '<path d="M12 2 L4 9 L12 12 Z" fill="#c4b5fd"/>' +
+  '<path d="M12 12 L20 9 L12 22 Z" fill="#6d28d9"/>' +
+  '<path d="M12 12 L4 9 L12 22 Z" fill="#8b5cf6"/>' +
+  '<circle cx="9.4" cy="8" r="1.3" fill="#fff" opacity="0.85"/>' +
+  '</svg>';
+const _pvIco = $('pvRedeemIco');
+if (_pvIco) _pvIco.innerHTML = PREVIEW_ICON;
+
+// восстановление прошлых выборов
+try {
+  const sf = localStorage.getItem('ov_font');      if (sf) $ovFont.value = sf;
+  const ss = localStorage.getItem('ov_size');      if (ss) $ovSize.value = ss;
+  const sb = localStorage.getItem('ov_bg');        if (sb !== null) $ovBg.checked = sb === '1';
+  const sh = localStorage.getItem('ov_hide');      if (sh !== null) $ovHide.checked = sh === '1';
+  const sha = localStorage.getItem('ov_hideAfter'); if (sha) $ovHideAfter.value = sha;
+  const sp = localStorage.getItem('ov_points'); if (sp !== null) $ovPoints.value = sp;
+  const sem = localStorage.getItem('ov_emote'); if (sem) $ovEmote.value = sem;
+} catch (e) {}
+
+function summaryText() {
+  const bg = $ovBg.checked ? 'плашка' : 'без плашки';
+  const timer = $ovHide.checked ? ($ovHideAfter.value + 'с') : 'без таймера';
+  return $ovFont.value + ' · ' + $ovSize.value + 'px · ' + bg + ' · ' + timer;
+}
+
+function summaryChips() {
+  const seg = (txt, on) => `<span class="seg ${on ? 'on' : 'off'}">${txt}</span>`;
+  return seg($ovFont.value, true) +
+         seg($ovSize.value + 'px', true) +
+         seg($ovBg.checked ? 'плашка' : 'без плашки', $ovBg.checked) +
+         seg($ovHide.checked ? ('таймер ' + $ovHideAfter.value + 'с') : 'таймер выкл', $ovHide.checked);
+}
+
+function styledUrl() {
+  if (!currentObsUrl) return 'http://localhost:—';
+  const p = new URLSearchParams();
+  p.set('font', $ovFont.value);
+  p.set('size', $ovSize.value);
+  p.set('bg', $ovBg.checked ? '1' : '0');
+  p.set('hide', $ovHide.checked ? '1' : '0');
+  if ($ovHide.checked) p.set('hideAfter', String(parseInt($ovHideAfter.value, 10) * 1000));
+  p.set('points', $ovPoints.value.trim() || 'баллов');
+  p.set('emote', $ovEmote.value);
+  return currentObsUrl + '/?' + p.toString();
+}
+
+function refreshOverlayUrl() { $('obsUrl').textContent = styledUrl(); }
+
+function refreshPreview() {
+  const fam = '"' + $ovFont.value + '", "Segoe UI", Arial, sans-serif';
+  const sz = $ovSize.value + 'px';
+
+  $ovPreview.style.fontFamily = fam;
+  $ovPreview.style.fontSize = sz;
+  if ($ovBg.checked) {
+    $ovPreview.style.background = 'rgba(15,15,18,0.82)';
+    $ovPreview.style.padding = '6px 10px';
+  } else {
+    $ovPreview.style.background = 'transparent';
+    $ovPreview.style.padding = '2px 0';
+  }
+
+  const $pvR = $('ovPreviewRedeem');
+  if ($pvR) {
+    $pvR.style.fontFamily = fam;
+    $pvR.style.fontSize = sz;
+    if ($ovBg.checked) {
+      $pvR.style.background = 'linear-gradient(100deg, rgba(145,71,255,0.24), rgba(46,230,168,0.10) 58%, rgba(15,15,18,0.82))';
+      $pvR.style.padding = '7px 12px 7px 14px';
+    } else {
+      $pvR.style.background = 'transparent';
+      $pvR.style.padding = '4px 10px 4px 12px';
+    }
+  }
+
+  $ovSizeVal.textContent = sz;
+  $ovHideAfterVal.textContent = $ovHideAfter.value + 'с';
+  if ($pvPoints) $pvPoints.textContent = $ovPoints.value.trim() || 'баллов';
+  $ovHideWrap.classList.toggle('disabled', !$ovHide.checked);
+  $ovEmoteVal.textContent = $ovEmote.value + 'px';
+  const $pvE = $('pvEmote');
+  if ($pvE) $pvE.style.height = $ovEmote.value + 'px';
+}
+
+function refreshSummary() {
+  const t = summaryText();
+  $trigSummary.textContent = t;
+  $modalSummary.innerHTML = summaryChips();
+}
+
+function saveStylePrefs() {
+  try {
+    localStorage.setItem('ov_font', $ovFont.value);
+    localStorage.setItem('ov_size', $ovSize.value);
+    localStorage.setItem('ov_bg', $ovBg.checked ? '1' : '0');
+    localStorage.setItem('ov_hide', $ovHide.checked ? '1' : '0');
+    localStorage.setItem('ov_hideAfter', $ovHideAfter.value);
+    localStorage.setItem('ov_points', $ovPoints.value);
+    localStorage.setItem('ov_emote', $ovEmote.value);
+  } catch (e) {}
+}
+
+function onStyleChange() {
+  refreshPreview();
+  refreshOverlayUrl();
+  refreshSummary();
+  saveStylePrefs();
+  postStyleToPreview();
+}
+
+// шлём стиль прямо в живой iframe — применяется мгновенно, без перезагрузки
+function postStyleToPreview() {
+  const f = $('preview');
+  if (!f || !f.contentWindow) return;
+  let origin = '*';
+  try { origin = new URL(currentObsUrl).origin; } catch (e) {}
+  f.contentWindow.postMessage({
+    type: 'overlay-style',
+    font: $ovFont.value,
+    size: parseInt($ovSize.value, 10),
+    bg: $ovBg.checked,
+    hide: $ovHide.checked,
+    hideAfter: parseInt($ovHideAfter.value, 10) * 1000,
+    points: $ovPoints.value.trim() || 'баллов',
+    emote: parseInt($ovEmote.value, 10),
+  }, origin);
+}
+
+// iframe сообщил, что загрузился — отдаём ему текущий стиль
+window.addEventListener('message', (e) => {
+  const f = $('preview');
+  if (f && e.source === f.contentWindow && e.data && e.data.type === 'overlay-ready') {
+    postStyleToPreview();
+  }
+});
+
+// модалка: открытие / закрытие
+function openStyleModal() { $styleModal.classList.add('open'); $styleModal.setAttribute('aria-hidden', 'false'); }
+function closeStyleModal() { $styleModal.classList.remove('open'); $styleModal.setAttribute('aria-hidden', 'true'); }
+
+$('openStyleBtn').addEventListener('click', openStyleModal);
+$('openStyleBtn').addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openStyleModal(); }
+});
+$('modalClose').addEventListener('click', closeStyleModal);
+$('modalDone').addEventListener('click', closeStyleModal);
+$('modalReset').addEventListener('click', () => {
+  $ovFont.value = DEFAULTS.font;
+  $ovSize.value = DEFAULTS.size;
+  $ovBg.checked = DEFAULTS.bg;
+  $ovHide.checked = DEFAULTS.hide;
+  $ovHideAfter.value = DEFAULTS.hideAfter;
+  $ovPoints.value = DEFAULTS.points;
+  $ovEmote.value = DEFAULTS.emote;
+  onStyleChange();
+});
+$styleModal.addEventListener('mousedown', e => { if (e.target === $styleModal) closeStyleModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $styleModal.classList.contains('open')) closeStyleModal(); });
+
+$ovFont.addEventListener('change', onStyleChange);
+$ovSize.addEventListener('input', onStyleChange);
+$ovBg.addEventListener('change', onStyleChange);
+$ovHide.addEventListener('change', onStyleChange);
+$ovHideAfter.addEventListener('input', onStyleChange);
+$ovPoints.addEventListener('input', onStyleChange);
+$ovEmote.addEventListener('input', onStyleChange);
+
+refreshPreview();
+refreshOverlayUrl();
+refreshSummary();
+
+window.api.onState(update);
+window.api.getState().then(update);
+
+function update(st) {
+  const pill = $('statusPill');
+  const cls = st.chatConnected ? 'live' : (st.channel ? 'connecting' : 'off');
+  pill.className = 'status-pill ' + cls;
+  $('statusText').textContent = st.chatConnected
+    ? 'Подключено · ' + st.channel
+    : (st.error ? st.error.slice(0, 40) : (st.channel ? 'Подключение…' : 'Канал не настроен'));
+
+  currentObsUrl = st.obsUrl || '';
+  refreshOverlayUrl();
+  $('statChannel').textContent = st.channel || '—';
+  $('statPort').textContent = st.port || '—';
+  $('previewMeta').textContent = (st.emotes || 0) + ' emotes · ' + (st.badges || 0) + ' badges';
+
+  const msgsEl = $('statMsgs');
+  if (st.messages !== lastMsgs) {
+    msgsEl.textContent = st.messages;
+    msgsEl.classList.remove('bump'); void msgsEl.offsetWidth; msgsEl.classList.add('bump');
+    lastMsgs = st.messages;
+  }
+
+  $('statUptime').textContent = (st.chatConnected && st.startedAt)
+    ? fmtUptime(Date.now() - st.startedAt) : '0:00';
+
+  const pv = $('preview');
+  if (pv.dataset.base !== st.obsUrl) {
+    pv.dataset.base = st.obsUrl;
+    pv.src = styledUrl();
+  }
+}
+
+function fmtUptime(ms) {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return (h > 0 ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(sec).padStart(2, '0');
+}
+
+$('copyBtn').addEventListener('click', async () => {
+  await window.api.copyText($('obsUrl').textContent);
+  const b = $('copyBtn');
+  const lbl = b.querySelector('.bl');
+  b.classList.add('done'); lbl.textContent = 'Скопировано';
+  setTimeout(() => { b.classList.remove('done'); lbl.textContent = 'Копировать'; }, 1600);
+});
+
+$('openBtn').addEventListener('click', () => window.api.openUrl($('obsUrl').textContent));
+$('settingsBtn').addEventListener('click', () => window.api.openSettings());
+$('restartBtn').addEventListener('click', () => window.api.restart());
+$('quitBtn').addEventListener('click', () => window.api.quit());
+</script>
+</body>
+</html>

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Настройки — Twitch Chat для OBS</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0e0e10; color: #efeff1; font-family: 'Segoe UI', sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 24px;
+    }
+    .card { background: #18181b; border: 1px solid #2f2f35; border-radius: 12px; padding: 32px; width: 460px; max-width: 100%; }
+    h1 { font-size: 20px; margin-bottom: 6px; }
+    .sub { color: #adadb8; font-size: 13px; margin-bottom: 22px; }
+    .dev-link {
+      display: flex; align-items: center; gap: 12px;
+      background: #1f1f23; border: 1px solid #2f2f35; border-radius: 8px;
+      padding: 13px 15px; text-decoration: none; margin-bottom: 8px;
+      transition: border-color .2s, background .2s;
+    }
+    .dev-link:hover { border-color: #9147ff; background: #232327; }
+    .dev-link .icon { font-size: 20px; }
+    .dev-link .txt { flex: 1; }
+    .dev-link .txt b { display: block; color: #efeff1; font-size: 14px; }
+    .dev-link .txt span { color: #adadb8; font-size: 12px; }
+    .dev-link .arrow { color: #9147ff; font-size: 17px; }
+    .steps { background: #0e0e10; border: 1px solid #2f2f35; border-radius: 8px; padding: 13px 15px; margin-bottom: 20px; }
+    .steps ol { margin-left: 18px; }
+    .steps li { color: #adadb8; font-size: 12px; line-height: 1.7; }
+    .steps code { background: #1f1f23; border: 1px solid #2f2f35; border-radius: 4px; padding: 1px 6px; color: #efeff1; font-size: 11px; font-family: Consolas, monospace; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #adadb8; margin-bottom: 6px; margin-top: 16px; }
+    input {
+      width: 100%; padding: 10px 14px; border-radius: 6px;
+      border: 2px solid #2f2f35; background: #0e0e10; color: #efeff1;
+      font-size: 15px; outline: none; transition: border-color .2s;
+    }
+    input:focus { border-color: #9147ff; }
+    input::placeholder { color: #53535f; }
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+    .row .small { flex: 0 0 110px; }
+    .hint { font-size: 11px; color: #53535f; margin-top: 4px; }
+    button {
+      width: 100%; margin-top: 26px; padding: 12px; border: none; border-radius: 6px;
+      background: #9147ff; color: #fff; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: background .2s, transform .1s;
+    }
+    button:hover { background: #772ce8; }
+    button:active { transform: scale(0.99); }
+    .msg { margin-top: 14px; font-size: 13px; text-align: center; display: none; }
+    .msg.ok { color: #00f593; display: block; }
+    .msg.err { color: #eb0400; display: block; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Настройки</h1>
+    <p class="sub">Twitch Chat для OBS — канал, порт и доступ к значкам</p>
+
+    <a class="dev-link" href="https://dev.twitch.tv/console" target="_blank" rel="noopener">
+      <span class="icon">🔑</span>
+      <span class="txt">
+        <b>Twitch Developer Console</b>
+        <span>Получить Client ID и Client Secret</span>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+
+    <div class="steps">
+      <ol>
+        <li>Войдите в Twitch-аккаунт на сайте выше</li>
+        <li><b>Register Your Application</b> → Name любое</li>
+        <li>OAuth Redirect URLs: <code>http://localhost</code> и <code>http://localhost:6769/auth/callback</code></li>
+        <li>Category: <b>Chat Bot</b> → <b>Create</b> → скопируйте <b>Client ID</b></li>
+        <li><b>New Secret</b> → скопируйте секрет</li>
+      </ol>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Канал Twitch</label>
+        <input type="text" id="channel" placeholder="ник канала" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="small">
+        <label>Порт</label>
+        <input type="number" id="port" placeholder="6767">
+      </div>
+    </div>
+
+    <label>Client ID</label>
+    <input type="text" id="clientId" placeholder="из dev.twitch.tv/console" autocomplete="off" spellcheck="false">
+
+    <label>Client Secret</label>
+    <input type="password" id="clientSecret" placeholder="секрет приложения" autocomplete="off">
+    <div class="hint">Нужен для загрузки значков. Хранится локально</div>
+
+    <label>Редимы за баллы канала</label>
+    <div id="redeemBox" style="background:#0e0e10;border:1px solid #2f2f35;border-radius:8px;padding:12px 14px;">
+      <div id="redeemStatus" style="font-size:13px;color:#adadb8;margin-bottom:10px;">Проверка статуса...</div>
+      <a id="redeemBtn" href="/auth/start" target="_blank" rel="noopener"
+         style="display:inline-block;text-decoration:none;background:#9147ff;color:#fff;font-weight:700;
+                font-size:13px;padding:9px 16px;border-radius:6px;transition:background .2s,opacity .2s;">
+        Подключить Twitch
+      </a>
+      <div class="hint" style="margin-top:8px;">
+        Откроется браузер для авторизации. В консоли Twitch в OAuth Redirect URLs должен быть прописан
+        <code style="background:#1f1f23;border:1px solid #2f2f35;border-radius:4px;padding:1px 6px;color:#efeff1;font-size:11px;font-family:Consolas,monospace;">http://localhost:6769/auth/callback</code>
+      </div>
+    </div>
+    <label>DonationAlerts</label>
+    <div id="daBox" style="background:#0e0e10;border:1px solid #2f2f35;border-radius:8px;padding:12px 14px;">
+      <div id="daStatus" style="font-size:13px;color:#adadb8;margin-bottom:10px;">Проверка статуса...</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <input type="text" id="daClientId" placeholder="Client ID DA" autocomplete="off" spellcheck="false" style="margin:0;">
+        <input type="password" id="daClientSecret" placeholder="Client Secret DA" autocomplete="off" style="margin:0;">
+      </div>
+      <a id="daBtn" href="/da/auth/start" target="_blank" rel="noopener"
+         style="display:inline-block;text-decoration:none;background:#ffb454;color:#241505;font-weight:700;
+                font-size:13px;padding:9px 16px;border-radius:6px;transition:background .2s,opacity .2s;">
+        Подключить DonationAlerts
+      </a>
+      <div class="hint" style="margin-top:8px;">
+        Создайте API-приложение в кабинете DonationAlerts и пропишите Redirect URI
+        <code style="background:#1f1f23;border:1px solid #2f2f35;border-radius:4px;padding:1px 6px;color:#efeff1;font-size:11px;font-family:Consolas,monospace;">http://localhost:6769/da/callback</code>
+      </div>
+    </div>
+
+    <button id="save">Сохранить и подключить</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <script>
+    const $channel = document.getElementById('channel');
+    const $port = document.getElementById('port');
+    const $clientId = document.getElementById('clientId');
+    const $clientSecret = document.getElementById('clientSecret');
+    const $msg = document.getElementById('msg');
+    const inApp = !!(window.api && window.api.isApp);
+
+    function showMsg(text, type) {
+      $msg.textContent = text;
+      $msg.className = 'msg ' + type;
+    }
+
+    // загрузка текущих значений
+    fetch('/api/config').then(r => r.json()).then(cfg => {
+      if (cfg.channel) $channel.value = cfg.channel;
+      if (cfg.port) $port.value = cfg.port;
+      if (cfg.clientId) $clientId.value = cfg.clientId;
+      if (cfg.clientSecret) $clientSecret.placeholder = cfg.clientSecret + ' (пусто = не менять)';
+      if (cfg.daClientId) $daClientId.value = cfg.daClientId;
+      if (cfg.daClientSecret) $daClientSecret.placeholder = cfg.daClientSecret + ' (пусто = не менять)';
+    }).catch(() => {});
+
+    document.getElementById('save').addEventListener('click', save);
+    $channel.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+
+    async function save() {
+      const channel = $channel.value.trim();
+      if (!channel) { showMsg('Введите ник канала', 'err'); return; }
+
+      const body = {
+        channel,
+        port: parseInt($port.value, 10) || 6767,
+        clientId: $clientId.value.trim(),
+        clientSecret: $clientSecret.value.trim() || undefined,
+        daClientId: $daClientId.value.trim(),
+        daClientSecret: $daClientSecret.value.trim() || undefined
+      };
+
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          showMsg('Сохранено. Подключение к #' + data.channel + '…', 'ok');
+          setTimeout(() => {
+            if (inApp) {
+              window.api.settingsSaved();
+            } else {
+              window.location.href = 'http://localhost:' + (data.port || body.port) + '/';
+            }
+          }, 1400);
+        } else {
+          showMsg(data.error || ('Ошибка сохранения (HTTP ' + res.status + ')'), 'err');
+        }
+      } catch (e) {
+        showMsg('Ошибка сети: ' + e.message, 'err');
+      }
+    }
+
+    // --- статус подключения редимов ---
+    const $redeemStatus = document.getElementById('redeemStatus');
+    const $redeemBtn = document.getElementById('redeemBtn');
+    const $daStatus = document.getElementById('daStatus');
+    const $daBtn = document.getElementById('daBtn');
+    const $daClientId = document.getElementById('daClientId');
+    const $daClientSecret = document.getElementById('daClientSecret');
+
+    function escapeHtmlLocal(t) {
+      const d = document.createElement('div');
+      d.textContent = String(t == null ? '' : t);
+      return d.innerHTML;
+    }
+
+    function renderRedeemStatus(s) {
+      if (s.connected) {
+        $redeemStatus.innerHTML =
+          '<span style="color:#00f593;font-weight:700;">Подключено</span> как <b style="color:#efeff1">' +
+          escapeHtmlLocal(s.login || '?') + '</b>' +
+          (s.eventSubActive ? ' <span style="color:#00f593;">(EventSub активен)</span>'
+                            : ' <span style="color:#ffb454;">(EventSub переподключается...)</span>');
+        $redeemBtn.textContent = 'Переподключить';
+        $redeemBtn.style.opacity = '1';
+        $redeemBtn.style.pointerEvents = 'auto';
+      } else {
+        $redeemStatus.textContent = 'Не подключено';
+        if (s.canAuth) {
+          $redeemBtn.textContent = 'Подключить Twitch';
+          $redeemBtn.style.opacity = '1';
+          $redeemBtn.style.pointerEvents = 'auto';
+        } else {
+          $redeemBtn.textContent = 'Сначала укажите Client ID и Secret';
+          $redeemBtn.style.opacity = '0.45';
+          $redeemBtn.style.pointerEvents = 'none';
+        }
+      }
+    }
+
+    function renderDaStatus(s) {
+      if (s.daConnected) {
+        $daStatus.innerHTML =
+          '<span style="color:#00f593;font-weight:700;">Подключено</span>: <b style="color:#efeff1">' +
+          escapeHtmlLocal(s.daLogin || '?') + '</b>';
+        $daBtn.textContent = 'Переподключить';
+        $daBtn.style.opacity = '1';
+        $daBtn.style.pointerEvents = 'auto';
+      } else {
+        $daStatus.textContent = 'Не подключено';
+        if (s.canDaAuth) {
+          $daBtn.textContent = 'Подключить DonationAlerts';
+          $daBtn.style.opacity = '1';
+          $daBtn.style.pointerEvents = 'auto';
+        } else {
+          $daBtn.textContent = 'Сначала укажите Client ID и Secret DA';
+          $daBtn.style.opacity = '0.45';
+          $daBtn.style.pointerEvents = 'none';
+        }
+      }
+    }
+
+    function refreshRedeemStatus() {
+      fetch('/api/redeem-status').then(r => r.json()).then(s => {
+        renderRedeemStatus(s);
+        renderDaStatus(s);
+      }).catch(() => {});
+    }
+
+    if ($redeemStatus && $redeemBtn) {
+      refreshRedeemStatus(); // страховка на случай, если SSE недоступен
+      const es = new EventSource('/api/redeem-events');
+      es.onmessage = (e) => {
+        try {
+          const s = JSON.parse(e.data);
+          renderRedeemStatus(s);
+          renderDaStatus(s);
+        } catch (err) {}
+      };
+    }
+  </script>
+</body>
+</html>

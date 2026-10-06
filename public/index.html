@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Twitch Chat OBS</title>
+  <!-- <link rel="stylesheet" href="style.css"> -->
+  <style>
+  :root {
+    --ov-font: 'Segoe UI', Arial, sans-serif;
+    --ov-size: 14px;
+    --ov-bg: rgba(15, 15, 18, 0.82);
+    --ov-pad: 6px 10px;
+    --ov-bg-redeem: linear-gradient(100deg, rgba(145,71,255,0.24), rgba(46,230,168,0.10) 58%, rgba(15,15,18,0.82));
+    --ov-pad-redeem: 7px 12px 7px 14px;
+    --ov-bg-donation: linear-gradient(100deg, rgba(255,180,84,0.20), rgba(46,230,168,0.08) 58%, rgba(15,15,18,0.82));
+    --ov-pad-donation: 7px 12px 7px 14px;
+    --ov-bg-gift: linear-gradient(100deg, rgba(46,230,168,0.20), rgba(46,230,168,0.06) 58%, rgba(15,15,18,0.82));
+    --ov-pad-gift: 7px 12px 7px 14px;
+    --ov-bg-streak: linear-gradient(100deg, rgba(74,168,255,0.20), rgba(74,168,255,0.06) 58%, rgba(15,15,18,0.82));
+    --ov-pad-streak: 7px 12px 7px 14px;
+    --ov-emote: 20px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { height: 100%; }
+  body {
+    background: transparent;
+    font-family: 'Segoe UI', 'Inter', Arial, sans-serif;
+    overflow: hidden;
+  }
+
+  /* Чат */
+  #chat-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    height: 100%;
+    padding: 8px;
+    overflow: hidden;
+  }
+
+  .chat-message {
+    border-radius: 6px;
+    line-height: 1.6;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 1px rgba(0,0,0,0.7);
+    word-wrap: break-word;
+    animation: msgIn .35s cubic-bezier(.2,.8,.2,1) both;
+    font-family: var(--ov-font);
+    font-size: var(--ov-size);
+    background: var(--ov-bg);
+    padding: var(--ov-pad);
+  }
+
+  .chat-message.hiding {
+    animation: msgOut .5s cubic-bezier(.4,0,1,1) forwards;
+    pointer-events: none;
+  }
+   .chat-message .emote,
+  img.emote {
+    display: inline-block;
+    vertical-align: middle;
+    height: var(--ov-emote, 20px);
+    max-height: var(--ov-emote, 20px);
+    width: auto;
+    max-width: calc(var(--ov-emote, 20px) * 2.8);
+    object-fit: contain;
+    margin: 0 1px;
+  }
+
+  .chat-message .bits { color: #ffd700; font-weight: bold; margin-left: 5px; }
+
+  .chat-message.redeem-message {
+    border-left: 3px solid #b388ff;
+    position: relative;
+    box-shadow: 0 0 0 1px rgba(145,71,255,.3), 0 6px 24px rgba(145,71,255,.2);
+    animation: redeemIn .5s cubic-bezier(.2,.9,.25,1) both;
+    background: var(--ov-bg-redeem);
+    padding: var(--ov-pad-redeem);
+  }
+    .chat-message.redeem-message.hiding {
+    animation: msgOut .5s cubic-bezier(.4,0,1,1) forwards;
+    pointer-events: none;
+  }
+
+  .chat-message .username { font-weight: bold; }
+  .chat-message .colon { color: #ffffff; margin: 0 4px 0 1px; }
+
+  /* Значки */
+  .badges-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .badges-wrap .badge {
+    display: block;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+  }
+
+  /* Редимы */
+  .redeem-input {
+    margin-top: 3px;
+    font-style: italic;
+    color: #ececf3;
+    opacity: 0.92;
+    word-break: break-word;
+  }
+
+  .redeem-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .redeem-text { min-width: 0; }
+  .redeem-ico {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 6px rgba(179,136,255,.7));
+    animation: icoPop .6s cubic-bezier(.2,1.4,.4,1) both;
+  }
+  .redeem-user { font-weight: 800; }
+  .redeem-reward { font-weight: 700; color: #d9c4ff; }
+  .redeem-cost { font-weight: 800; color: #ffd479; }
+  .redeem-verb { color: #cfcfd6; }
+
+  /* Анимки */
+  @keyframes redeemIn {
+    0%   { opacity: 0; transform: translateY(-16px) scale(.97); }
+    60%  { opacity: 1; }
+    100% { opacity: 1; transform: none; }
+  }
+
+  @keyframes icoPop {
+    0%   { transform: scale(0) rotate(-40deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+
+  /* появление: старт на 14px выше, приезд вниз на своё место */
+  @keyframes msgIn {
+    0%   { opacity: 0; transform: translateY(-14px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  /* исчезновение: прозрачность + плавное схлопывание высоты, чтобы не дёргалось */
+  @keyframes msgOut {
+    0%   { opacity: 1; }
+    100% { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; }
+  }
+  /* @keyframes redeemGlow {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(145,71,255,.22), 0 6px 22px rgba(145,71,255,.14); }
+    50%      { box-shadow: 0 0 0 1px rgba(145,71,255,.45), 0 8px 30px rgba(145,71,255,.32); }
+  } */
+  /* @keyframes icoPulse {
+    0%, 100% { filter: drop-shadow(0 0 4px rgba(179,136,255,.5)); }
+    50%      { filter: drop-shadow(0 0 10px rgba(179,136,255,.95)); }
+  } */
+
+  ::-webkit-scrollbar { display: none; }
+  .chat-message { margin: 0 0 6px 0; }
+    /* --- донаты DonationAlerts: янтарное событие --- */
+  .chat-message.donation-message {
+    border-left: 3px solid #ffb454;
+    position: relative;
+    box-shadow: 0 0 0 1px rgba(255,180,84,.28), 0 6px 24px rgba(255,180,84,.16);
+    background: var(--ov-bg-donation);
+    padding: var(--ov-pad-donation);
+    animation: redeemIn .5s cubic-bezier(.2,.9,.25,1) both;
+  }
+  .chat-message.donation-message.hiding {
+    animation: msgOut .5s cubic-bezier(.4,0,1,1) forwards;
+    pointer-events: none;
+  }
+  .donation-ico {
+    width: 22px; height: 22px; flex-shrink: 0;
+    filter: drop-shadow(0 0 6px rgba(255,180,84,.7));
+    animation: icoPop .6s cubic-bezier(.2,1.4,.4,1) both;
+  }
+  .donation-user { font-weight: 800; color: #ffd9a8; }
+  .donation-sum { font-weight: 800; color: #ffb454; }
+  .donation-verb { color: #cfcfd6; }
+  .donation-text {
+    margin-top: 3px; font-style: italic; color: #f3ede2;
+    opacity: .95; word-break: break-word;
+  }
+    /* --- события Twitch: битсы / сабы / стрики / гифты --- */
+  .chat-message.event-message {
+    position: relative;
+    border-left: 3px solid var(--ev-color, #9147ff);
+    background: var(--ev-bg, var(--ov-bg-redeem));
+    padding: var(--ov-pad-redeem);
+    animation: redeemIn .5s cubic-bezier(.2,.9,.25,1) both;
+  }
+  .chat-message.event-message.hiding {
+    animation: msgOut .5s cubic-bezier(.4,0,1,1) forwards;
+    pointer-events: none;
+  }
+  .cheer-message { --ev-color: #ffd700; --ev-bg: var(--ov-bg-donation); box-shadow: 0 0 0 1px rgba(255,215,0,.25), 0 6px 24px rgba(255,215,0,.14); }
+  .sub-message, .resub-message { --ev-color: #b388ff; --ev-bg: var(--ov-bg-redeem); box-shadow: 0 0 0 1px rgba(179,136,255,.28), 0 6px 24px rgba(179,136,255,.16); }
+  .gift-message { --ev-color: #2ee6a8; --ev-bg: var(--ov-bg-gift); padding: var(--ov-pad-gift); box-shadow: 0 0 0 1px rgba(46,230,168,.28), 0 6px 24px rgba(46,230,168,.14); }
+  .event-ico { width: 22px; height: 22px; flex-shrink: 0; animation: icoPop .6s cubic-bezier(.2,1.4,.4,1) both; }
+  .event-user { font-weight: 800; }
+  .event-sum { font-weight: 800; color: #ffd479; }
+  .event-verb { color: #cfcfd6; }
+  .event-text { margin-top: 3px; font-style: italic; color: #ececf3; opacity: .95; word-break: break-word; }
+  .streak-message {
+    --ev-color: #4aa8ff;
+    --ev-bg: var(--ov-bg-streak);
+    padding: var(--ov-pad-streak);
+    box-shadow: 0 0 0 1px rgba(74,168,255,.28), 0 6px 24px rgba(74,168,255,.14);
+  }
+</style>
+</head>
+<body>
+  <div id="chat-container"></div>
+  <script src="app.js"></script>
+</body>
+</html>
