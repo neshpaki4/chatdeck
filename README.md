@@ -165,15 +165,6 @@ chatdeck/
 - **Персональные паки зрителей** отключены — используется только пак канала + глобал + Twitch native
 - **Только Windows** в текущей версии (electron-builder настроен на Windows)
 
-## Contributing
-
-PR приветствуются! Если хочешь добавить фичу:
-
-1. Форкни репозиторий
-2. Создай ветку (`git checkout -b feature/amazing-feature`)
-3. Закоммить изменения (`git commit -m 'Add amazing feature'`)
-4. Запушь в ветку (`git push origin feature/amazing-feature`)
-5. Открой Pull Request
 
 ## Лицензия
 
