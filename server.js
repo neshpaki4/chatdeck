@@ -158,6 +158,43 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     next();
   });
 
+    // ==================== STYLE (стиль оверлея хранится в config.json) ====================
+  const DEFAULT_STYLE = {
+    font: 'Segoe UI',
+    size: 14,
+    bg: true,
+    hide: true,
+    hideAfter: 30000,
+    points: '',
+    emote: 20
+  };
+
+  function getStyle() {
+    const cfg = getConfig();
+    return { ...DEFAULT_STYLE, ...(cfg.style || {}) };
+  }
+
+  app.get('/api/style', (req, res) => res.json(getStyle()));
+
+  app.post('/api/style', (req, res) => {
+    const b = req.body || {};
+    const old = getStyle();
+    const next = {
+      font: typeof b.font === 'string' ? b.font : old.font,
+      size: parseInt(b.size, 10) > 0 ? parseInt(b.size, 10) : old.size,
+      bg: typeof b.bg === 'boolean' ? b.bg : old.bg,
+      hide: typeof b.hide === 'boolean' ? b.hide : old.hide,
+      hideAfter: parseInt(b.hideAfter, 10) > 0 ? parseInt(b.hideAfter, 10) : old.hideAfter,
+      points: typeof b.points === 'string' ? b.points : old.points,
+      emote: parseInt(b.emote, 10) > 0 ? parseInt(b.emote, 10) : old.emote
+    };
+    const cfg = getConfig();
+    cfg.style = next;
+    saveConfig(cfg);
+    // вещаем всем WS-клиентам (OBS, предпросмотр) — стиль применяется мгновенно, без перезагрузки страницы
+    broadcast(JSON.stringify({ type: 'style', data: next }));
+    res.json({ ok: true, style: next });
+  });
   app.use(express.static(publicDir));
 
     // ==================== REDEEMS: OAuth + EventSub ====================

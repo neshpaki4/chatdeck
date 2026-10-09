@@ -1,14 +1,35 @@
 const chatContainer = document.getElementById('chat-container');
 const MAX_MESSAGES = 50;
 const _ovParams = new URLSearchParams(location.search);
-let ovFont = (_ovParams.get('font') || '').trim() || null;
-let ovSize = parseInt(_ovParams.get('size'), 10) || 0;
-const _ovBg = (_ovParams.get('bg') || '').toLowerCase();
-let ovBgOff = _ovParams.has('bg') && ['0', 'false', 'none', 'off', 'transparent'].includes(_ovBg);
-const _ovHide = (_ovParams.get('hide') || '').toLowerCase();
-let ovHideOff = _ovParams.has('hide') && ['0', 'false', 'off', 'none'].includes(_ovHide);
-let ovPoints = (_ovParams.get('points') || '').trim() || 'баллов';
-let ovEmoteSize = parseInt(_ovParams.get('emote'), 10) || 20;
+
+// 1.4: стиль — сервер как база, URL-параметры как переопределение (для старых OBS-ссылок)
+let ovFont = null, ovSize = 0, ovBgOff = false, ovHideOff = false, ovPoints = 'баллов', ovEmoteSize = 20;
+
+function applyStyleObject(s) {
+  if (typeof s.font === 'string') ovFont = s.font.trim() || null;
+  if (Number.isFinite(+s.size) && +s.size > 0) ovSize = +s.size;
+  if (typeof s.bg === 'boolean') ovBgOff = !s.bg;
+  if (typeof s.hide === 'boolean') ovHideOff = !s.hide;
+  if (typeof s.points === 'string' && s.points.trim()) ovPoints = s.points.trim();
+  if (Number.isFinite(+s.emote) && +s.emote > 0) ovEmoteSize = +s.emote;
+  if (Number.isFinite(+s.hideAfter) && +s.hideAfter > 0) messageLifetime = +s.hideAfter;
+}
+
+function applyUrlOverrides() {
+  if ((_ovParams.get('font') || '').trim()) ovFont = _ovParams.get('font').trim();
+  const sz = parseInt(_ovParams.get('size'), 10); if (sz > 0) ovSize = sz;
+  if (_ovParams.has('bg')) {
+    const v = (_ovParams.get('bg') || '').toLowerCase();
+    ovBgOff = ['0', 'false', 'none', 'off', 'transparent'].includes(v);
+  }
+  if (_ovParams.has('hide')) {
+    const v = (_ovParams.get('hide') || '').toLowerCase();
+    ovHideOff = ['0', 'false', 'off', 'none'].includes(v);
+  }
+  if ((_ovParams.get('points') || '').trim()) ovPoints = _ovParams.get('points').trim();
+  const em = parseInt(_ovParams.get('emote'), 10); if (em > 0) ovEmoteSize = em;
+  const ha = parseInt(_ovParams.get('hideAfter'), 10); if (ha > 0) messageLifetime = ha;
+}
 const POINTS_ICON =
   '<svg class="redeem-ico" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
   '<path d="M12 2 L20 9 L12 22 L4 9 Z" fill="#7c3aed"/>' +
@@ -29,7 +50,7 @@ function formatAmount(a) {
   if (!isFinite(n)) return String(a);
   return (n % 1 === 0) ? String(n) : n.toFixed(2);
 }
-let messageLifetime = parseInt(new URLSearchParams(location.search).get('hideAfter')) || 30000;
+let messageLifetime = 30000;
 const HIDE_DURATION = 500;
 let emoteMap = {};
 let badgeMap = {};
@@ -75,6 +96,30 @@ ws.onmessage = (event) => {
   }
   if (msg.type === 'badges') {
   badgeMap = msg.data;
+  }
+  if (msg.type === 'style') {
+    // сервер разослал новый стиль — применяем + URL-переопределения + ретаймер
+    const d = msg.data || {};
+    const prevHideOff = ovHideOff;
+    const prevLife = messageLifetime;
+    applyStyleObject(d);
+    applyUrlOverrides();
+    applyStyleVars();
+    if (ovHideOff !== prevHideOff || messageLifetime !== prevLife) {
+      const nodes = chatContainer.children;
+      for (let i = 0; i < nodes.length; i++) {
+        const el = nodes[i];
+        if (ovHideOff) {
+          clearTimeout(el._hideTimer); clearTimeout(el._removeTimer);
+          el._hideTimer = null;
+          el.classList.remove('hiding');
+          el.style.maxHeight = ''; el.style.overflow = '';
+        } else {
+          clearTimeout(el._hideTimer); el._hideTimer = null;
+          if (!el.classList.contains('hiding')) scheduleHide(el);
+        }
+      }
+    }
   }
 };
 
@@ -341,7 +386,16 @@ function applyStyleVars() {
   }
   
 }
-applyStyleVars(); // стартовое применение из URL-параметров
+// 1. Мгновенно — URL/дефолты, чтобы оверлей не мерцал без стилей
+applyUrlOverrides();
+applyStyleVars();
+// 2. Асинхронно — серверный стиль как база, URL-переопределения поверх
+fetch('/api/style')
+  .then(r => (r.ok ? r.json() : null))
+  .catch(() => null)
+  .then(s => {
+    if (s) { applyStyleObject(s); applyUrlOverrides(); applyStyleVars(); }
+  });
 
 // ==================== Живой стиль из панели (postMessage) ====================
 function applyOverlayStyle(d) {
