@@ -614,30 +614,43 @@ if (_pvIco) _pvIco.innerHTML = PREVIEW_ICON;
 
 // 1.3.1: стиль живёт на сервере. Восстанавливаем контролы из /api/style.
 fetch('/api/style')
-  .then(r => (r.ok ? r.json() : null))
-  .then(s => {
-    if (!s) return;
-    if (s.font) {
-      // если сохранённого шрифта нет в select — добавляем опцию, чтобы не потерять
-      if (![...$ovFont.options].some(o => o.value === s.font)) {
-        const opt = document.createElement('option');
-        opt.value = s.font; opt.textContent = s.font + ' (custom)';
-        $ovFont.appendChild(opt);
+  // 1.4: стиль живёт на сервере. Панель в Electron открыта через file://,
+// поэтому относительный fetch не работает — бьём абсолютным URL
+// и только когда state уже принёс адрес сервера.
+let styleLoadedOnce = false;
+function loadStyleFromServer() {
+  if (!currentObsUrl || styleLoadedOnce) return;
+  fetch(currentObsUrl + '/api/style')
+    .then(r => (r.ok ? r.json() : null))
+    .then(s => {
+      if (!s) return;
+      styleLoadedOnce = true;
+      if (s.font) {
+        if (![...$ovFont.options].some(o => o.value === s.font)) {
+          const opt = document.createElement('option');
+          opt.value = s.font; opt.textContent = s.font + ' (custom)';
+          $ovFont.appendChild(opt);
+        }
+        $ovFont.value = s.font;
       }
-      $ovFont.value = s.font;
-    }
-    if (s.size > 0) $ovSize.value = s.size;
-    if (typeof s.bg === 'boolean') $ovBg.checked = s.bg;
-    if (typeof s.hide === 'boolean') $ovHide.checked = s.hide;
-    if (s.hideAfter > 0) $ovHideAfter.value = Math.round(s.hideAfter / 1000);
-    if (typeof s.points === 'string') $ovPoints.value = s.points;
-    if (s.emote > 0) $ovEmote.value = s.emote;
-    refreshPreview();
-    refreshOverlayUrl();
-    refreshSummary();
-    postStyleToPreview();
-  })
-  .catch(() => {});
+      if (s.size > 0) $ovSize.value = s.size;
+      if (typeof s.bg === 'boolean') $ovBg.checked = s.bg;
+      if (typeof s.hide === 'boolean') $ovHide.checked = s.hide;
+      if (s.hideAfter > 0) $ovHideAfter.value = Math.round(s.hideAfter / 1000);
+      if (typeof s.points === 'string') $ovPoints.value = s.points;
+      if (s.emote > 0) $ovEmote.value = s.emote;
+      refreshPreview();
+      refreshOverlayUrl();
+      refreshSummary();
+      postStyleToPreview();
+    })
+    .catch(() => {});
+}
+// ждём, пока state принесёт obsUrl, и только потом тянем стиль
+(function waitStyleUrl() {
+  if (currentObsUrl) loadStyleFromServer();
+  else setTimeout(waitStyleUrl, 300);
+})();
 
 function summaryText() {
   const bg = $ovBg.checked ? 'плашка' : 'без плашки';
@@ -706,9 +719,10 @@ function refreshSummary() {
 
 let styleSaveTimer = null;
 function saveStylePrefs() {
+  if (!currentObsUrl) return;
   clearTimeout(styleSaveTimer);
   styleSaveTimer = setTimeout(() => {
-    fetch('/api/style', {
+    fetch(currentObsUrl + '/api/style', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

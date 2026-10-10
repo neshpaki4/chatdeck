@@ -174,6 +174,13 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     return { ...DEFAULT_STYLE, ...(cfg.style || {}) };
   }
 
+    // Панель в Electron открыта через file:// (origin null) — разрешаем ей кросс-запросы к стилю
+  app.use('/api/style', (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') return res.sendStatus(204); // preflight
+    next();
+  });
   app.get('/api/style', (req, res) => res.json(getStyle()));
 
   app.post('/api/style', (req, res) => {
@@ -191,6 +198,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     const cfg = getConfig();
     cfg.style = next;
     saveConfig(cfg);
+    console.log('[Style] saved + broadcast');
     // вещаем всем WS-клиентам (OBS, предпросмотр) — стиль применяется мгновенно, без перезагрузки страницы
     broadcast(JSON.stringify({ type: 'style', data: next }));
     res.json({ ok: true, style: next });

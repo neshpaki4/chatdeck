@@ -97,8 +97,7 @@ ws.onmessage = (event) => {
   if (msg.type === 'badges') {
   badgeMap = msg.data;
   }
-  if (msg.type === 'style') {
-    // сервер разослал новый стиль — применяем + URL-переопределения + ретаймер
+   if (msg.type === 'style') {
     const d = msg.data || {};
     const prevHideOff = ovHideOff;
     const prevLife = messageLifetime;
