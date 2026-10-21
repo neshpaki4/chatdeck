@@ -34,7 +34,8 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     redeemLogin: null,
     eventSubActive: false,
     daConnected: false,
-    daLogin: null
+    daLogin: null,
+    rouletteUrl: ''
   };
 
   
@@ -109,13 +110,14 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       port: cfg.port || 6767,
       pointsName: cfg.pointsName || '',
       daClientId: cfg.daClientId || '',
-      daClientSecret: cfg.daClientSecret ? '••••••••' + cfg.daClientSecret.slice(-4) : ''
+      daClientSecret: cfg.daClientSecret ? '••••••••' + cfg.daClientSecret.slice(-4) : '',
+      rouletteUrl: cfg.rouletteUrl || ''
     });
   });
 
   app.post('/api/config', (req, res) => {
     const old = getConfig();
-    const { channel, clientId, clientSecret, port, pointsName, daClientId, daClientSecret } = req.body;
+    const { channel, clientId, clientSecret, port, pointsName, daClientId, daClientSecret, rouletteUrl } = req.body;
     if (!channel || !channel.trim()) return res.status(400).json({ error: 'channel required' });
 
     const clean = channel.trim().toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_]/g, '');
@@ -131,6 +133,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       daClientId: (daClientId || old.daClientId || '').trim(),
       daClientSecret: (daClientSecret && !daClientSecret.startsWith('••••'))
         ? daClientSecret.trim() : (old.daClientSecret || ''),
+      rouletteUrl: (rouletteUrl || old.rouletteUrl || '').trim(),
       // токены редимов и DA не приходят с формы — переносим, чтобы не потерять
       userAccessToken: old.userAccessToken,
       userRefreshToken: old.userRefreshToken,
@@ -1163,6 +1166,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   async function applyConfig(cfg) {
     const portChanged = cfg.port && cfg.port !== state.port;
     currentConfig = cfg;
+    state.rouletteUrl = cfg.rouletteUrl || '';
     saveConfig(cfg);
     if (portChanged) {
       state.port = cfg.port;
@@ -1177,6 +1181,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   async function start() {
     currentConfig = getConfig();
     state.port = currentConfig.port || 6767;
+    state.rouletteUrl = currentConfig.rouletteUrl || '';
     await new Promise((resolve, reject) => {
       server.once('error', reject);
       server.listen(state.port, () => resolve());

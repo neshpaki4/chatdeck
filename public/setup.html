@@ -95,7 +95,7 @@
     <input type="password" id="clientSecret" placeholder="секрет приложения" autocomplete="off">
     <div class="hint">Нужен для загрузки значков. Хранится локально</div>
 
-    <label>Редимы за баллы канала</label>
+    <label>Twitch</label>
     <div id="redeemBox" style="background:#0e0e10;border:1px solid #2f2f35;border-radius:8px;padding:12px 14px;">
       <div id="redeemStatus" style="font-size:13px;color:#adadb8;margin-bottom:10px;">Проверка статуса...</div>
       <a id="redeemBtn" href="/auth/start" target="_blank" rel="noopener"
@@ -114,6 +114,7 @@
       <div style="display:flex;gap:8px;margin-bottom:8px;">
         <input type="text" id="daClientId" placeholder="Client ID DA" autocomplete="off" spellcheck="false" style="margin:0;">
         <input type="password" id="daClientSecret" placeholder="Client Secret DA" autocomplete="off" style="margin:0;">
+        <input type="text" id="rouletteUrl" placeholder="URL рулетки" autocomplete="off" style="margin:0;">
       </div>
       <a id="daBtn" href="/da/auth/start" target="_blank" rel="noopener"
          style="display:inline-block;text-decoration:none;background:#ffb454;color:#241505;font-weight:700;
@@ -151,6 +152,7 @@
       if (cfg.clientSecret) $clientSecret.placeholder = cfg.clientSecret + ' (пусто = не менять)';
       if (cfg.daClientId) $daClientId.value = cfg.daClientId;
       if (cfg.daClientSecret) $daClientSecret.placeholder = cfg.daClientSecret + ' (пусто = не менять)';
+      if (cfg.rouletteUrl) $rouletteUrl.value = cfg.rouletteUrl;
     }).catch(() => {});
 
     document.getElementById('save').addEventListener('click', save);
@@ -166,7 +168,8 @@
         clientId: $clientId.value.trim(),
         clientSecret: $clientSecret.value.trim() || undefined,
         daClientId: $daClientId.value.trim(),
-        daClientSecret: $daClientSecret.value.trim() || undefined
+        daClientSecret: $daClientSecret.value.trim() || undefined,
+        rouletteUrl: $rouletteUrl.value.trim()
       };
 
       try {
@@ -200,6 +203,7 @@
     const $daBtn = document.getElementById('daBtn');
     const $daClientId = document.getElementById('daClientId');
     const $daClientSecret = document.getElementById('daClientSecret');
+    const $rouletteUrl = document.getElementById('rouletteUrl');
 
     function escapeHtmlLocal(t) {
       const d = document.createElement('div');
@@ -210,10 +214,8 @@
     function renderRedeemStatus(s) {
       if (s.connected) {
         $redeemStatus.innerHTML =
-          '<span style="color:#00f593;font-weight:700;">Подключено</span> как <b style="color:#efeff1">' +
-          escapeHtmlLocal(s.login || '?') + '</b>' +
-          (s.eventSubActive ? ' <span style="color:#00f593;">(EventSub активен)</span>'
-                            : ' <span style="color:#ffb454;">(EventSub переподключается...)</span>');
+          '<span style="color:#00f593;font-weight:700;">Подключено: </span><b style="color:#efeff1">' +
+          escapeHtmlLocal(s.login || '?') + '</b>',
         $redeemBtn.textContent = 'Переподключить';
         $redeemBtn.style.opacity = '1';
         $redeemBtn.style.pointerEvents = 'auto';

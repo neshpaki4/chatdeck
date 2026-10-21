@@ -386,6 +386,14 @@ footer {
 /* --- шапка предпросмотра со статусом --- */
 .preview-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
 .preview-head-right { display: flex; align-items: center; gap: 10px; }
+  /* --- Рулетка: встроенное управление --- */
+  .roulette-card { padding: 12px 14px 14px; max-width: 500px; }
+  .roulette-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .roulette-title { font-weight: 700; font-size: 13px; color: #efeff1; }
+  .roulette-status { font-size: 11px; color: #8b8b96; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .roulette-body { position: relative; height: 150px; max-width: 470px; border-radius: 10px; overflow: hidden; background: #0f0f12; border: 1px solid #26262c; }
+  .roulette-body webview { width: 100%; height: 100%; display: block; background: transparent; }
+  .roulette-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; text-align: center; color: #8b8b96; font-size: 12px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -454,10 +462,17 @@ footer {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
       </span>
     </div>
-
-
+    <div class="card roulette-card">
+  <div class="roulette-head">
+    <span class="roulette-title">Рулетка</span>
+    </div>
+    <div class="roulette-body">
+      <webview id="rouletteFrame" title="Управление рулеткой" partition="persist:roulette" style="display:none"></webview>
+    <div class="roulette-empty" id="rouletteEmpty">URL управления рулеткой не задан.<br>Укажите его в настройках — раздел DonationAlerts.</div>
   </div>
+</div>
 
+</div>
   <section class="card preview">
     <div class="preview-head">
       <span class="card-label" style="margin:0">Предпросмотр оверлея</span>
@@ -476,7 +491,7 @@ footer {
 
 <footer>
   <span>Закрытие окна сворачивает в трей — сервер продолжает работать</span>
-  <span>v1.3.11</span>
+  <span>v1.3.2-beta</span>
 </footer>
 
 <div class="modal-backdrop" id="styleModal" aria-hidden="true">
@@ -581,6 +596,7 @@ const $ = id => document.getElementById(id);
 let lastMsgs = 0;
 // ==================== конструктор стиля оверлея ====================
 let currentObsUrl = '';
+let lastRouletteUrl = null;
 const DEFAULTS = { font: 'Segoe UI', size: 14, bg: true, hide: true, hideAfter: 30, points: '', emote: 20 };
 const $ovFont = $('ovFont');
 const $ovSize = $('ovSize');
@@ -823,6 +839,23 @@ function update(st) {
   $('statChannel').textContent = st.channel || '—';
   $('statPort').textContent = st.port || '—';
   $('previewMeta').textContent = (st.emotes || 0) + ' emotes · ' + (st.badges || 0) + ' badges';
+  const ru = st.rouletteUrl || '';
+    if (ru !== lastRouletteUrl) {
+      lastRouletteUrl = ru;
+  const fr = document.getElementById('rouletteFrame');
+  const em = document.getElementById('rouletteEmpty');
+    if (ru) {
+        if (fr.getAttribute('src') !== ru) fr.setAttribute('src', ru);
+        fr.style.display = '';
+        em.style.display = 'none';
+        stx.textContent = ru.replace(/^https?:\/\//, '');
+    } else {
+        fr.removeAttribute('src', 'about:blank');
+        fr.style.display = 'none';
+        em.style.display = '';
+        stx.textContent = 'не задано';
+    }
+  }
 
   const msgsEl = $('statMsgs');
   if (st.messages !== lastMsgs) {
