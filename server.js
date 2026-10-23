@@ -165,6 +165,11 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   const DEFAULT_STYLE = {
     font: 'Segoe UI',
     size: 14,
+    gap: 6,
+    textColor: '#efeff1',
+    bgColor: '#0f0f12',
+    bgOpacity: 82,
+    showBadges: true,
     bg: true,
     hide: true,
     hideAfter: 30000,
@@ -190,8 +195,13 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     const b = req.body || {};
     const old = getStyle();
     const next = {
-      font: typeof b.font === 'string' ? b.font : old.font,
+      font: typeof b.font === 'string' && b.font.trim() ? b.font.trim() : old.font,
       size: parseInt(b.size, 10) > 0 ? parseInt(b.size, 10) : old.size,
+      gap: Number.isFinite(+b.gap) && +b.gap >= 0 ? Math.min(32, Math.max(0, +b.gap)) : (old.gap != null ? old.gap : 6),
+      textColor: typeof b.textColor === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(b.textColor) ? b.textColor : (old.textColor || '#efeff1'),
+      bgColor: typeof b.bgColor === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(b.bgColor) ? b.bgColor : (old.bgColor || '#0f0f12'),
+      bgOpacity: Number.isFinite(+b.bgOpacity) && +b.bgOpacity >= 0 && +b.bgOpacity <= 100 ? +b.bgOpacity : (old.bgOpacity != null ? old.bgOpacity : 82),
+      showBadges: typeof b.showBadges === 'boolean' ? b.showBadges : (old.showBadges != null ? old.showBadges : true),
       bg: typeof b.bg === 'boolean' ? b.bg : old.bg,
       hide: typeof b.hide === 'boolean' ? b.hide : old.hide,
       hideAfter: parseInt(b.hideAfter, 10) > 0 ? parseInt(b.hideAfter, 10) : old.hideAfter,
@@ -1114,6 +1124,41 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
           redeem: !!tags['custom-reward-id'],
           timestamp: Date.now()
         }
+      }));
+    });
+
+    // ==================== МОДЕРАЦИЯ ЧАТА (Удаление сообщений) ====================
+    client.on('messagedeleted', (ch, username, deletedMessage, userstate) => {
+      const targetId = userstate && (userstate['target-msg-id'] || userstate.targetMsgId);
+      if (targetId) {
+        broadcast(JSON.stringify({
+          type: 'delete_message',
+          id: targetId
+        }));
+      }
+    });
+
+    client.on('timeout', (ch, username) => {
+      if (username) {
+        broadcast(JSON.stringify({
+          type: 'clear_user',
+          username: username.toLowerCase()
+        }));
+      }
+    });
+
+    client.on('ban', (ch, username) => {
+      if (username) {
+        broadcast(JSON.stringify({
+          type: 'clear_user',
+          username: username.toLowerCase()
+        }));
+      }
+    });
+
+    client.on('clearchat', () => {
+      broadcast(JSON.stringify({
+        type: 'clear_chat'
       }));
     });
 

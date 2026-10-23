@@ -2,12 +2,30 @@ const chatContainer = document.getElementById('chat-container');
 const MAX_MESSAGES = 50;
 const _ovParams = new URLSearchParams(location.search);
 
-// 1.4: стиль — сервер как база, URL-параметры как переопределение (для старых OBS-ссылок)
+// 1.3.3: стиль — сервер как база, URL-параметры как переопределение (для старых OBS-ссылок)
 let ovFont = null, ovSize = 0, ovBgOff = false, ovHideOff = false, ovPoints = 'баллов', ovEmoteSize = 20;
+let ovGap = 6, ovTextColor = '#efeff1', ovBgColor = '#0f0f12', ovBgOpacity = 82, ovShowBadges = true;
+
+function hexToRgba(hex, alpha) {
+  if (!hex || typeof hex !== 'string' || hex[0] !== '#') return `rgba(15,15,18,${alpha})`;
+  let c = hex.slice(1);
+  if (c.length === 3) c = c.split('').map(x => x + x).join('');
+  const num = parseInt(c, 16);
+  if (isNaN(num)) return `rgba(15,15,18,${alpha})`;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 function applyStyleObject(s) {
   if (typeof s.font === 'string') ovFont = s.font.trim() || null;
   if (Number.isFinite(+s.size) && +s.size > 0) ovSize = +s.size;
+  if (Number.isFinite(+s.gap) && +s.gap >= 0) ovGap = +s.gap;
+  if (typeof s.textColor === 'string' && s.textColor) ovTextColor = s.textColor;
+  if (typeof s.bgColor === 'string' && s.bgColor) ovBgColor = s.bgColor;
+  if (Number.isFinite(+s.bgOpacity) && +s.bgOpacity >= 0 && +s.bgOpacity <= 100) ovBgOpacity = +s.bgOpacity;
+  if (typeof s.showBadges === 'boolean') ovShowBadges = s.showBadges;
   if (typeof s.bg === 'boolean') ovBgOff = !s.bg;
   if (typeof s.hide === 'boolean') ovHideOff = !s.hide;
   if (typeof s.points === 'string' && s.points.trim()) ovPoints = s.points.trim();
@@ -18,6 +36,14 @@ function applyStyleObject(s) {
 function applyUrlOverrides() {
   if ((_ovParams.get('font') || '').trim()) ovFont = _ovParams.get('font').trim();
   const sz = parseInt(_ovParams.get('size'), 10); if (sz > 0) ovSize = sz;
+  if (_ovParams.has('gap')) { const g = parseInt(_ovParams.get('gap'), 10); if (g >= 0) ovGap = g; }
+  if ((_ovParams.get('textColor') || '').trim()) ovTextColor = _ovParams.get('textColor').trim();
+  if ((_ovParams.get('bgColor') || '').trim()) ovBgColor = _ovParams.get('bgColor').trim();
+  if (_ovParams.has('bgOpacity')) { const o = parseInt(_ovParams.get('bgOpacity'), 10); if (o >= 0 && o <= 100) ovBgOpacity = o; }
+  if (_ovParams.has('badges')) {
+    const v = (_ovParams.get('badges') || '').toLowerCase();
+    ovShowBadges = !['0', 'false', 'off', 'none', 'hide'].includes(v);
+  }
   if (_ovParams.has('bg')) {
     const v = (_ovParams.get('bg') || '').toLowerCase();
     ovBgOff = ['0', 'false', 'none', 'off', 'transparent'].includes(v);
@@ -94,6 +120,24 @@ ws.onmessage = (event) => {
   if (msg.type === 'watchstreak') {
     renderWatchStreak(msg.data);
   }
+  if (msg.type === 'delete_message') {
+    if (msg.id) {
+      const escaped = window.CSS && CSS.escape ? CSS.escape(msg.id) : msg.id.replace(/["\\]/g, '\\$&');
+      const el = chatContainer.querySelector('[data-msg-id="' + escaped + '"]');
+      if (el) removeMessageElement(el);
+    }
+  }
+  if (msg.type === 'clear_user') {
+    if (msg.username) {
+      const uname = (msg.username || '').toLowerCase();
+      const escaped = window.CSS && CSS.escape ? CSS.escape(uname) : uname.replace(/["\\]/g, '\\$&');
+      const els = chatContainer.querySelectorAll('[data-username="' + escaped + '"]');
+      for (let i = 0; i < els.length; i++) removeMessageElement(els[i]);
+    }
+  }
+  if (msg.type === 'clear_chat') {
+    clearAllChatMessages();
+  }
   if (msg.type === 'badges') {
   badgeMap = msg.data;
   }
@@ -167,11 +211,39 @@ function buildMessageHTML(data) {
   return html;
 }
 
+function removeMessageElement(el) {
+  if (!el || !el.isConnected) return;
+  clearTimeout(el._hideTimer);
+  clearTimeout(el._removeTimer);
+  el._hideTimer = null;
+  el._removeTimer = null;
+  el.style.maxHeight = el.offsetHeight + 'px';
+  el.style.overflow = 'hidden';
+  el.style.transition = 'max-height .15s ease-out, opacity .15s ease-out, margin .15s ease-out, padding .15s ease-out';
+  void el.offsetWidth;
+  el.style.opacity = '0';
+  el.style.maxHeight = '0px';
+  el.style.marginTop = '0px';
+  el.style.marginBottom = '0px';
+  el.style.paddingTop = '0px';
+  el.style.paddingBottom = '0px';
+  setTimeout(() => { if (el.isConnected) el.remove(); }, 160);
+}
+
+function clearAllChatMessages() {
+  const nodes = Array.from(chatContainer.children);
+  for (const el of nodes) {
+    removeMessageElement(el);
+  }
+}
+
 function renderMessage(data) {
   const div = document.createElement('div');
   div.className = 'chat-message';
   if (data.redeem) div.classList.add('redeem-message');
   if (data.userId) div.dataset.uid = data.userId;
+  if (data.id) div.dataset.msgId = data.id;
+  if (data.username) div.dataset.username = (data.username || '').toLowerCase();
   div._msgData = data;
   div.innerHTML = buildMessageHTML(data);
   appendAndTrim(div);
@@ -206,6 +278,7 @@ function startHide(el) {
 function renderRedeem(d) {
   const div = document.createElement('div');
   div.className = 'chat-message redeem-message';
+  if (d.username) div.dataset.username = (d.username || '').toLowerCase();
 
   let text =
     '<span class="redeem-user" style="color:' + d.color + '">' + escapeHtml(d.username) + '</span>' +
@@ -224,6 +297,7 @@ function renderRedeem(d) {
 function renderDonation(d) {
   const div = document.createElement('div');
   div.className = 'chat-message donation-message';
+  if (d.username) div.dataset.username = (d.username || '').toLowerCase();
 
   const cur = CURRENCY_SIGN[(d.currency || '').toUpperCase()] || (d.currency || '');
   let text =
@@ -261,6 +335,7 @@ const ICON_GIFT =
 function renderWatchStreak(d) {
   const div = document.createElement('div');
   div.className = 'chat-message event-message streak-message';
+  if (d.username) div.dataset.username = (d.username || '').toLowerCase();
   let text =
     '<span class="event-user" style="color:' + d.color + '">' + escapeHtml(d.username) + '</span>' +
     ' <span class="event-verb">смотрит</span> ' +
@@ -275,6 +350,7 @@ function tierLabel(t) { return t === '2000' ? 'Tier 2' : t === '3000' ? 'Tier 3'
 function renderCheer(d) {
   const div = document.createElement('div');
   div.className = 'chat-message event-message cheer-message';
+  if (d.username) div.dataset.username = (d.username || '').toLowerCase();
   let text =
     '<span class="event-user" style="color:' + d.color + '">' + escapeHtml(d.username) + '</span>' +
     ' <span class="event-verb">' + (d.anonymous ? 'анонимно поддержал' : 'поддержал') + '</span> ' +
@@ -287,6 +363,7 @@ function renderCheer(d) {
 function renderSub(d) {
   const div = document.createElement('div');
   div.className = 'chat-message event-message sub-message';
+  if (d.username) div.dataset.username = (d.username || '').toLowerCase();
   const text =
     '<span class="event-user" style="color:' + d.color + '">' + escapeHtml(d.username) + '</span>' +
     ' <span class="event-verb">оформил подписку</span> ' +
@@ -298,6 +375,7 @@ function renderSub(d) {
 function renderResub(d) {
   const div = document.createElement('div');
   div.className = 'chat-message event-message resub-message';
+  if (d.username) div.dataset.username = (d.username || '').toLowerCase();
   let text =
     '<span class="event-user" style="color:' + d.color + '">' + escapeHtml(d.username) + '</span>' +
     ' <span class="event-verb">продлил подписку —</span> ' +
@@ -312,6 +390,7 @@ function renderResub(d) {
 function renderSubGift(d) {
   const div = document.createElement('div');
   div.className = 'chat-message event-message gift-message';
+  if (d.username) div.dataset.username = (d.username || '').toLowerCase();
   const text =
     '<span class="event-user" style="color:' + d.color + '">' + escapeHtml(d.username) + '</span>' +
     ' <span class="event-verb">подарил</span> ' +
@@ -359,7 +438,11 @@ function applyStyleVars() {
   const r = document.documentElement.style;
   r.setProperty('--ov-font', ovFont ? ('"' + ovFont + '", "Segoe UI", Arial, sans-serif') : "'Segoe UI', Arial, sans-serif");
   r.setProperty('--ov-size', (ovSize || 14) + 'px');
+  r.setProperty('--ov-gap', (ovGap != null ? ovGap : 6) + 'px');
+  r.setProperty('--ov-text', ovTextColor || '#efeff1');
+  r.setProperty('--ov-badge-display', ovShowBadges === false ? 'none' : 'inline-flex');
   r.setProperty('--ov-emote', (ovEmoteSize || 20) + 'px');
+
   if (ovBgOff) {
     r.setProperty('--ov-bg', 'transparent');
     r.setProperty('--ov-pad', '2px 0');
@@ -372,18 +455,19 @@ function applyStyleVars() {
     r.setProperty('--ov-bg-streak', 'transparent'); 
     r.setProperty('--ov-pad-streak', '4px 10px 4px 12px');
   } else {
-    r.setProperty('--ov-bg', 'rgba(15,15,18,0.82)');
+    const alpha = (Number.isFinite(+ovBgOpacity) ? Math.max(0, Math.min(100, +ovBgOpacity)) : 82) / 100;
+    const bgRgba = hexToRgba(ovBgColor || '#0f0f12', alpha);
+    r.setProperty('--ov-bg', bgRgba);
     r.setProperty('--ov-pad', '6px 10px');
-    r.setProperty('--ov-bg-redeem', 'linear-gradient(100deg, rgba(145,71,255,0.24), rgba(46,230,168,0.10) 58%, rgba(15,15,18,0.82))');
+    r.setProperty('--ov-bg-redeem', 'linear-gradient(100deg, rgba(145,71,255,0.24), rgba(46,230,168,0.10) 58%, ' + bgRgba + ')');
     r.setProperty('--ov-pad-redeem', '7px 12px 7px 14px');
-    r.setProperty('--ov-bg-donation', 'linear-gradient(100deg, rgba(255,180,84,0.20), rgba(46,230,168,0.08) 58%, rgba(15,15,18,0.82))');
+    r.setProperty('--ov-bg-donation', 'linear-gradient(100deg, rgba(255,180,84,0.20), rgba(46,230,168,0.08) 58%, ' + bgRgba + ')');
     r.setProperty('--ov-pad-donation', '7px 12px 7px 14px');
-    r.setProperty('--ov-bg-gift', 'linear-gradient(100deg, rgba(46,230,168,0.20), rgba(46,230,168,0.06) 58%, rgba(15,15,18,0.82))'); 
+    r.setProperty('--ov-bg-gift', 'linear-gradient(100deg, rgba(46,230,168,0.20), rgba(46,230,168,0.06) 58%, ' + bgRgba + ')'); 
     r.setProperty('--ov-pad-gift', '7px 12px 7px 14px');
-    r.setProperty('--ov-bg-streak', 'linear-gradient(100deg, rgba(74,168,255,0.20), rgba(74,168,255,0.06) 58%, rgba(15,15,18,0.82))'); 
+    r.setProperty('--ov-bg-streak', 'linear-gradient(100deg, rgba(74,168,255,0.20), rgba(74,168,255,0.06) 58%, ' + bgRgba + ')'); 
     r.setProperty('--ov-pad-streak', '7px 12px 7px 14px');
   }
-  
 }
 // 1. Мгновенно — URL/дефолты, чтобы оверлей не мерцал без стилей
 applyUrlOverrides();
@@ -402,6 +486,11 @@ function applyOverlayStyle(d) {
 
   if (typeof d.font === 'string') ovFont = d.font.trim() || null;
   if (d.size != null) ovSize = parseInt(d.size, 10) || 0;
+  if (d.gap != null) { const g = parseInt(d.gap, 10); if (g >= 0) ovGap = g; }
+  if (typeof d.textColor === 'string' && d.textColor) ovTextColor = d.textColor;
+  if (typeof d.bgColor === 'string' && d.bgColor) ovBgColor = d.bgColor;
+  if (d.bgOpacity != null) { const o = parseInt(d.bgOpacity, 10); if (o >= 0 && o <= 100) ovBgOpacity = o; }
+  if (typeof d.showBadges === 'boolean') ovShowBadges = d.showBadges;
   if (d.bg != null) ovBgOff = (d.bg === false || d.bg === 0 || d.bg === '0');
 
   const prevHideOff = ovHideOff;

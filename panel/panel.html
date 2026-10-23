@@ -310,7 +310,7 @@ footer {
 }
 .modal-backdrop.open { opacity: 1; visibility: visible; pointer-events: auto; }
 .modal-card {
-  width: 480px; max-width: 100%; max-height: 88vh; display: flex; flex-direction: column;
+  width: 530px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column;
   background: var(--surface); border: 1px solid var(--border-hover); border-radius: 14px;
   box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(145,71,255,.08);
   transform: translateY(16px) scale(.97); opacity: 0;
@@ -344,6 +344,15 @@ footer {
   border-radius: 0 0 14px 14px;
 }
 .modal-foot .btn-reset { margin-right: auto; }
+.ctl-color-row { display: flex; align-items: center; gap: 8px; }
+.ctl-color {
+  -webkit-appearance: none; border: 1px solid var(--border); border-radius: 7px;
+  width: 38px; height: 34px; padding: 2px; background: var(--bg); cursor: pointer; flex-shrink: 0;
+}
+.ctl-color::-webkit-color-swatch-wrapper { padding: 0; }
+.ctl-color::-webkit-color-swatch { border: none; border-radius: 5px; }
+.ctl-hex { font-family: var(--mono); width: 88px; text-transform: uppercase; font-size: 12px; }
+
 /* превью redeem-строки в модалке */
 .style-preview-frame { gap: 8px; flex-direction: column; align-items: stretch; }
 .style-preview-line.redeem-message {
@@ -386,14 +395,6 @@ footer {
 /* --- шапка предпросмотра со статусом --- */
 .preview-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
 .preview-head-right { display: flex; align-items: center; gap: 10px; }
-  /* --- Рулетка: встроенное управление --- */
-  .roulette-card { padding: 12px 14px 14px; max-width: 500px; }
-  .roulette-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-  .roulette-title { font-weight: 700; font-size: 13px; color: #efeff1; }
-  .roulette-status { font-size: 11px; color: #8b8b96; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-  .roulette-body { position: relative; height: 150px; max-width: 470px; border-radius: 10px; overflow: hidden; background: #0f0f12; border: 1px solid #26262c; }
-  .roulette-body webview { width: 100%; height: 100%; display: block; background: transparent; }
-  .roulette-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; text-align: center; color: #8b8b96; font-size: 12px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -462,15 +463,6 @@ footer {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
       </span>
     </div>
-    <div class="card roulette-card">
-  <div class="roulette-head">
-    <span class="roulette-title">Рулетка</span>
-    </div>
-    <div class="roulette-body">
-      <webview id="rouletteFrame" title="Управление рулеткой" partition="persist:roulette" style="display:none"></webview>
-    <div class="roulette-empty" id="rouletteEmpty">URL управления рулеткой не задан.<br>Укажите его в настройках — раздел DonationAlerts.</div>
-  </div>
-</div>
 
 </div>
   <section class="card preview">
@@ -491,7 +483,7 @@ footer {
 
 <footer>
   <span>Закрытие окна сворачивает в трей — сервер продолжает работать</span>
-  <span>v1.3.2-beta</span>
+  <span>v1.3.3</span>
 </footer>
 
 <div class="modal-backdrop" id="styleModal" aria-hidden="true">
@@ -519,44 +511,75 @@ footer {
       <div class="ctl-section">
         <h3>Типографика</h3>
         <div class="ctl-grid">
-          <div class="ctl">
-            <label for="ovFont">Шрифт</label>
-            <select id="ovFont" class="ctl-select">
-              <option value="Segoe UI">Segoe UI</option>
-              <option value="Arial">Arial</option>
-              <option value="Verdana">Verdana</option>
-              <option value="Tahoma">Tahoma</option>
-              <option value="Trebuchet MS">Trebuchet MS</option>
-              <option value="Georgia">Georgia</option>
-              <option value="Times New Roman">Times New Roman</option>
-              <option value="Courier New">Courier New</option>
-              <option value="Consolas">Consolas</option>
-              <option value="Impact">Impact</option>
-              <option value="Comic Sans MS">Comic Sans MS</option>
-              <option value="system-ui">system-ui</option>
-            </select>
+          <div class="ctl" style="grid-column: 1 / -1;">
+            <label for="ovFont">Шрифт (системный или любой установленный)</label>
+            <input type="text" id="ovFont" class="ctl-input" list="systemFontsList" placeholder="Segoe UI" autocomplete="off" spellcheck="false">
+            <datalist id="systemFontsList">
+              <option value="Segoe UI">
+              <option value="Arial">
+              <option value="Inter">
+              <option value="Montserrat">
+              <option value="Roboto">
+              <option value="Verdana">
+              <option value="Tahoma">
+              <option value="Trebuchet MS">
+              <option value="Georgia">
+              <option value="Times New Roman">
+              <option value="Consolas">
+              <option value="Impact">
+              <option value="Comic Sans MS">
+              <option value="system-ui">
+            </datalist>
           </div>
           <div class="ctl">
-            <label for="ovSize">Размер <span id="ovSizeVal">14px</span></label>
+            <label for="ovSize">Размер текста <span id="ovSizeVal">14px</span></label>
             <input type="range" id="ovSize" class="ctl-range" min="10" max="32" step="1" value="14">
           </div>
           <div class="ctl">
             <label for="ovEmote">Размер эмодзи <span id="ovEmoteVal">20px</span></label>
-            <input type="range" id="ovEmote" class="ctl-range" min="12" max="40" step="2" value="20">
+            <input type="range" id="ovEmote" class="ctl-range" min="12" max="48" step="2" value="20">
           </div>
         </div>
       </div>
 
       <div class="ctl-section">
-        <h3>Оформление</h3>
+        <h3>Цвета и подложка</h3>
         <div class="ctl-grid">
+          <div class="ctl">
+            <label for="ovTextColor">Цвет текста</label>
+            <div class="ctl-color-row">
+              <input type="color" id="ovTextColor" class="ctl-color" value="#efeff1">
+              <input type="text" id="ovTextColorHex" class="ctl-input ctl-hex" value="#EFEFF1" maxlength="7">
+            </div>
+          </div>
           <div class="ctl ctl-row">
             <label for="ovBg">Плашка под сообщением</label>
             <label class="switch"><input type="checkbox" id="ovBg" checked><span class="track"></span></label>
           </div>
+          <div class="ctl" id="ovBgColorWrap">
+            <label for="ovBgColor">Цвет подложки</label>
+            <div class="ctl-color-row">
+              <input type="color" id="ovBgColor" class="ctl-color" value="#0f0f12">
+              <input type="text" id="ovBgColorHex" class="ctl-input ctl-hex" value="#0F0F12" maxlength="7">
+            </div>
+          </div>
+          <div class="ctl" id="ovBgOpacityWrap">
+            <label for="ovBgOpacity">Прозрачность плашки <span id="ovBgOpacityVal">82%</span></label>
+            <input type="range" id="ovBgOpacity" class="ctl-range" min="0" max="100" step="1" value="82">
+          </div>
+        </div>
+      </div>
+
+      <div class="ctl-section">
+        <h3>Интервалы и значки</h3>
+        <div class="ctl-grid">
           <div class="ctl">
-            <label for="ovPoints">Название баллов</label>
-            <input type="text" id="ovPoints" class="ctl-input" placeholder="баллов" autocomplete="off" spellcheck="false">
+            <label for="ovGap">Зазор между сообщениями <span id="ovGapVal">6px</span></label>
+            <input type="range" id="ovGap" class="ctl-range" min="0" max="24" step="1" value="6">
+          </div>
+          <div class="ctl ctl-row">
+            <label for="ovBadges">Отображать значки (Badges)</label>
+            <label class="switch"><input type="checkbox" id="ovBadges" checked><span class="track"></span></label>
           </div>
         </div>
       </div>
@@ -572,11 +595,15 @@ footer {
             <label for="ovHideAfter">Исчезают через <span id="ovHideAfterVal">30с</span></label>
             <input type="range" id="ovHideAfter" class="ctl-range" min="5" max="120" step="5" value="30">
           </div>
+          <div class="ctl" style="grid-column: 1 / -1;">
+            <label for="ovPoints">Название баллов</label>
+            <input type="text" id="ovPoints" class="ctl-input" placeholder="баллов" autocomplete="off" spellcheck="false">
+          </div>
         </div>
       </div>
 
       <div class="style-preview-frame">
-        <div id="ovPreview" class="style-preview-line"><b style="color:#a78bff">neshpak</b><span style="color:#fff">: </span>привет чат <img id="pvEmote" class="pv-emote" src="https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/2.0" alt=""> как дела?</div>
+        <div id="ovPreview" class="style-preview-line"><span id="pvBadgesWrap" style="display:inline-flex;margin-right:6px;vertical-align:middle;"><svg width="18" height="18" viewBox="0 0 18 18"><rect width="18" height="18" rx="3" fill="#9147ff"/><text x="9" y="13" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold">★</text></svg></span><b style="color:#a78bff">neshpak</b><span style="color:#adadb8;margin:0 4px 0 1px;">: </span><span id="pvMsgText">привет чат</span> <img id="pvEmote" class="pv-emote" src="https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/2.0" alt=""> <span id="pvMsgEnd">как дела?</span></div>
         <div id="ovPreviewRedeem" class="style-preview-line redeem-message">
           <span id="pvRedeemIco"></span>
           <span class="redeem-text"><b style="color:#a78bff">neshpak</b> <span class="pv-verb">использовал</span> <span class="pv-reward">Hydrate</span> <span class="pv-verb">за</span> <span class="pv-cost">500</span> <span id="pvPoints">баллов</span></span>
@@ -596,12 +623,23 @@ const $ = id => document.getElementById(id);
 let lastMsgs = 0;
 // ==================== конструктор стиля оверлея ====================
 let currentObsUrl = '';
-let lastRouletteUrl = null;
-const DEFAULTS = { font: 'Segoe UI', size: 14, bg: true, hide: true, hideAfter: 30, points: '', emote: 20 };
+const DEFAULTS = { font: 'Segoe UI', size: 14, gap: 6, textColor: '#efeff1', bgColor: '#0f0f12', bgOpacity: 82, showBadges: true, bg: true, hide: true, hideAfter: 30, points: '', emote: 20 };
 const $ovFont = $('ovFont');
 const $ovSize = $('ovSize');
 const $ovSizeVal = $('ovSizeVal');
+const $ovGap = $('ovGap');
+const $ovGapVal = $('ovGapVal');
+const $ovTextColor = $('ovTextColor');
+const $ovTextColorHex = $('ovTextColorHex');
 const $ovBg = $('ovBg');
+const $ovBgColor = $('ovBgColor');
+const $ovBgColorHex = $('ovBgColorHex');
+const $ovBgOpacity = $('ovBgOpacity');
+const $ovBgOpacityVal = $('ovBgOpacityVal');
+const $ovBgColorWrap = $('ovBgColorWrap');
+const $ovBgOpacityWrap = $('ovBgOpacityWrap');
+const $ovBadges = $('ovBadges');
+const $pvBadgesWrap = $('pvBadgesWrap');
 const $ovHide = $('ovHide');
 const $ovHideAfter = $('ovHideAfter');
 const $ovHideAfterVal = $('ovHideAfterVal');
@@ -614,6 +652,18 @@ const $ovEmoteVal = $('ovEmoteVal');
 const $trigSummary = $('trigSummary');
 const $modalSummary = $('modalSummary');
 const $styleModal = $('styleModal');
+
+function hexToRgba(hex, alpha) {
+  if (!hex || typeof hex !== 'string' || hex[0] !== '#') return `rgba(15,15,18,${alpha})`;
+  let c = hex.slice(1);
+  if (c.length === 3) c = c.split('').map(x => x + x).join('');
+  const num = parseInt(c, 16);
+  if (isNaN(num)) return `rgba(15,15,18,${alpha})`;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 // Иконка превью вставляется из JS-строки, чтобы угловые скобки SVG
 // не терялись при копировании HTML (именно из-за этого в превью лез текст path d="...").
 const PREVIEW_ICON =
@@ -641,15 +691,13 @@ function loadStyleFromServer() {
     .then(s => {
       if (!s) return;
       styleLoadedOnce = true;
-      if (s.font) {
-        if (![...$ovFont.options].some(o => o.value === s.font)) {
-          const opt = document.createElement('option');
-          opt.value = s.font; opt.textContent = s.font + ' (custom)';
-          $ovFont.appendChild(opt);
-        }
-        $ovFont.value = s.font;
-      }
+      if (s.font) $ovFont.value = s.font;
       if (s.size > 0) $ovSize.value = s.size;
+      if (s.gap != null) $ovGap.value = s.gap;
+      if (s.textColor) { $ovTextColor.value = s.textColor; $ovTextColorHex.value = s.textColor.toUpperCase(); }
+      if (s.bgColor) { $ovBgColor.value = s.bgColor; $ovBgColorHex.value = s.bgColor.toUpperCase(); }
+      if (s.bgOpacity != null) $ovBgOpacity.value = s.bgOpacity;
+      if (typeof s.showBadges === 'boolean') $ovBadges.checked = s.showBadges;
       if (typeof s.bg === 'boolean') $ovBg.checked = s.bg;
       if (typeof s.hide === 'boolean') $ovHide.checked = s.hide;
       if (s.hideAfter > 0) $ovHideAfter.value = Math.round(s.hideAfter / 1000);
@@ -671,20 +719,22 @@ function loadStyleFromServer() {
 function summaryText() {
   const bg = $ovBg.checked ? 'плашка' : 'без плашки';
   const timer = $ovHide.checked ? ($ovHideAfter.value + 'с') : 'без таймера';
-  return $ovFont.value + ' · ' + $ovSize.value + 'px · ' + bg + ' · ' + timer;
+  const fontName = ($ovFont.value || 'Segoe UI').trim();
+  return fontName + ' · ' + $ovSize.value + 'px · зазор ' + $ovGap.value + 'px · ' + bg + ' · ' + timer;
 }
 
 function summaryChips() {
   const seg = (txt, on) => `<span class="seg ${on ? 'on' : 'off'}">${txt}</span>`;
-  return seg($ovFont.value, true) +
+  const fontName = ($ovFont.value || 'Segoe UI').trim();
+  return seg(fontName, true) +
          seg($ovSize.value + 'px', true) +
-         seg($ovBg.checked ? 'плашка' : 'без плашки', $ovBg.checked) +
+         seg('зазор ' + $ovGap.value + 'px', true) +
+         seg($ovBg.checked ? 'плашка ' + $ovBgOpacity.value + '%' : 'без плашки', $ovBg.checked) +
+         seg($ovBadges.checked ? 'бейджи вкл' : 'бейджи выкл', $ovBadges.checked) +
          seg($ovHide.checked ? ('таймер ' + $ovHideAfter.value + 'с') : 'таймер выкл', $ovHide.checked);
 }
 
 function styledUrl() {
-  // 1.3.1: стиль берётся с сервера, URL для OBS теперь чистый — один URL на все сцены.
-  // Параметры по-прежнему работают в app.js (для старых ссылок), но больше не нужны.
   if (!currentObsUrl) return 'http://localhost:—';
   return currentObsUrl + '/';
 }
@@ -692,13 +742,26 @@ function styledUrl() {
 function refreshOverlayUrl() { $('obsUrl').textContent = styledUrl(); }
 
 function refreshPreview() {
-  const fam = '"' + $ovFont.value + '", "Segoe UI", Arial, sans-serif';
+  const fontVal = ($ovFont.value || '').trim() || 'Segoe UI';
+  const fam = '"' + fontVal + '", "Segoe UI", Arial, sans-serif';
   const sz = $ovSize.value + 'px';
+  const gap = $ovGap.value + 'px';
+  const textColor = $ovTextColor.value || '#efeff1';
+  const opacity = parseInt($ovBgOpacity.value, 10) / 100;
+  const bgRgba = hexToRgba($ovBgColor.value || '#0f0f12', opacity);
 
   $ovPreview.style.fontFamily = fam;
   $ovPreview.style.fontSize = sz;
+  $ovPreview.style.color = textColor;
+  $ovPreview.style.marginBottom = gap;
+
+  if ($pvBadgesWrap) $pvBadgesWrap.style.display = $ovBadges.checked ? 'inline-flex' : 'none';
+
+  $ovBgColorWrap.classList.toggle('disabled', !$ovBg.checked);
+  $ovBgOpacityWrap.classList.toggle('disabled', !$ovBg.checked);
+
   if ($ovBg.checked) {
-    $ovPreview.style.background = 'rgba(15,15,18,0.82)';
+    $ovPreview.style.background = bgRgba;
     $ovPreview.style.padding = '6px 10px';
   } else {
     $ovPreview.style.background = 'transparent';
@@ -709,8 +772,9 @@ function refreshPreview() {
   if ($pvR) {
     $pvR.style.fontFamily = fam;
     $pvR.style.fontSize = sz;
+    $pvR.style.color = textColor;
     if ($ovBg.checked) {
-      $pvR.style.background = 'linear-gradient(100deg, rgba(145,71,255,0.24), rgba(46,230,168,0.10) 58%, rgba(15,15,18,0.82))';
+      $pvR.style.background = 'linear-gradient(100deg, rgba(145,71,255,0.24), rgba(46,230,168,0.10) 58%, ' + bgRgba + ')';
       $pvR.style.padding = '7px 12px 7px 14px';
     } else {
       $pvR.style.background = 'transparent';
@@ -719,6 +783,8 @@ function refreshPreview() {
   }
 
   $ovSizeVal.textContent = sz;
+  $ovGapVal.textContent = gap;
+  $ovBgOpacityVal.textContent = $ovBgOpacity.value + '%';
   $ovHideAfterVal.textContent = $ovHideAfter.value + 'с';
   if ($pvPoints) $pvPoints.textContent = $ovPoints.value.trim() || 'баллов';
   $ovHideWrap.classList.toggle('disabled', !$ovHide.checked);
@@ -742,8 +808,13 @@ function saveStylePrefs() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        font: $ovFont.value,
+        font: $ovFont.value.trim() || 'Segoe UI',
         size: parseInt($ovSize.value, 10),
+        gap: parseInt($ovGap.value, 10),
+        textColor: $ovTextColor.value,
+        bgColor: $ovBgColor.value,
+        bgOpacity: parseInt($ovBgOpacity.value, 10),
+        showBadges: $ovBadges.checked,
         bg: $ovBg.checked,
         hide: $ovHide.checked,
         hideAfter: parseInt($ovHideAfter.value, 10) * 1000,
@@ -770,8 +841,13 @@ function postStyleToPreview() {
   try { origin = new URL(currentObsUrl).origin; } catch (e) {}
   f.contentWindow.postMessage({
     type: 'overlay-style',
-    font: $ovFont.value,
+    font: $ovFont.value.trim() || 'Segoe UI',
     size: parseInt($ovSize.value, 10),
+    gap: parseInt($ovGap.value, 10),
+    textColor: $ovTextColor.value,
+    bgColor: $ovBgColor.value,
+    bgOpacity: parseInt($ovBgOpacity.value, 10),
+    showBadges: $ovBadges.checked,
     bg: $ovBg.checked,
     hide: $ovHide.checked,
     hideAfter: parseInt($ovHideAfter.value, 10) * 1000,
@@ -801,6 +877,13 @@ $('modalDone').addEventListener('click', closeStyleModal);
 $('modalReset').addEventListener('click', () => {
   $ovFont.value = DEFAULTS.font;
   $ovSize.value = DEFAULTS.size;
+  $ovGap.value = DEFAULTS.gap;
+  $ovTextColor.value = DEFAULTS.textColor;
+  $ovTextColorHex.value = DEFAULTS.textColor.toUpperCase();
+  $ovBgColor.value = DEFAULTS.bgColor;
+  $ovBgColorHex.value = DEFAULTS.bgColor.toUpperCase();
+  $ovBgOpacity.value = DEFAULTS.bgOpacity;
+  $ovBadges.checked = DEFAULTS.showBadges;
   $ovBg.checked = DEFAULTS.bg;
   $ovHide.checked = DEFAULTS.hide;
   $ovHideAfter.value = DEFAULTS.hideAfter;
@@ -811,8 +894,36 @@ $('modalReset').addEventListener('click', () => {
 $styleModal.addEventListener('mousedown', e => { if (e.target === $styleModal) closeStyleModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $styleModal.classList.contains('open')) closeStyleModal(); });
 
-$ovFont.addEventListener('change', onStyleChange);
+$ovFont.addEventListener('input', onStyleChange);
 $ovSize.addEventListener('input', onStyleChange);
+$ovGap.addEventListener('input', onStyleChange);
+
+$ovTextColor.addEventListener('input', () => {
+  $ovTextColorHex.value = $ovTextColor.value.toUpperCase();
+  onStyleChange();
+});
+$ovTextColorHex.addEventListener('input', () => {
+  const v = $ovTextColorHex.value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+    $ovTextColor.value = v;
+    onStyleChange();
+  }
+});
+
+$ovBgColor.addEventListener('input', () => {
+  $ovBgColorHex.value = $ovBgColor.value.toUpperCase();
+  onStyleChange();
+});
+$ovBgColorHex.addEventListener('input', () => {
+  const v = $ovBgColorHex.value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+    $ovBgColor.value = v;
+    onStyleChange();
+  }
+});
+
+$ovBgOpacity.addEventListener('input', onStyleChange);
+$ovBadges.addEventListener('change', onStyleChange);
 $ovBg.addEventListener('change', onStyleChange);
 $ovHide.addEventListener('change', onStyleChange);
 $ovHideAfter.addEventListener('input', onStyleChange);
@@ -839,23 +950,6 @@ function update(st) {
   $('statChannel').textContent = st.channel || '—';
   $('statPort').textContent = st.port || '—';
   $('previewMeta').textContent = (st.emotes || 0) + ' emotes · ' + (st.badges || 0) + ' badges';
-  const ru = st.rouletteUrl || '';
-    if (ru !== lastRouletteUrl) {
-      lastRouletteUrl = ru;
-  const fr = document.getElementById('rouletteFrame');
-  const em = document.getElementById('rouletteEmpty');
-    if (ru) {
-        if (fr.getAttribute('src') !== ru) fr.setAttribute('src', ru);
-        fr.style.display = '';
-        em.style.display = 'none';
-        stx.textContent = ru.replace(/^https?:\/\//, '');
-    } else {
-        fr.removeAttribute('src', 'about:blank');
-        fr.style.display = 'none';
-        em.style.display = '';
-        stx.textContent = 'не задано';
-    }
-  }
 
   const msgsEl = $('statMsgs');
   if (st.messages !== lastMsgs) {

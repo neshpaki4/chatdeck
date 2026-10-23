@@ -1,6 +1,6 @@
 {
   "name": "chatdeck-twitch-chat",
-  "version": "1.3.2-beta",
+  "version": "1.3.3",
   "description": "Simple Twitch chat overlay with 7TV emotes for OBS",
   "main": "main.js",
   "scripts": {
