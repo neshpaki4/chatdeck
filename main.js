@@ -120,12 +120,12 @@ function createTray() {
 
 function rebuildTray() {
   const st = chatServer.getState();
-  const key = `${st.chatConnected}|${st.channel}|${st.port}`;
+  const key = `${st.chatConnected}|${st.channel}|${st.port}|${st.streamLive}`;
   if (key === lastTrayKey) return;
   lastTrayKey = key;
 
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: st.chatConnected ? `В эфире: #${st.channel}` : 'Не подключено', enabled: false },
+    { label: st.chatConnected ? (st.streamLive ? `В эфире: #${st.channel}` : `Чат: #${st.channel} (офлайн)`) : 'Не подключено', enabled: false },
     { type: 'separator' },
     { label: 'Показать панель', click: () => mainWindow.show() },
     { label: 'Скопировать URL для OBS', click: () => clipboard.writeText(st.obsUrl) },

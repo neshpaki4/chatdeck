@@ -435,7 +435,7 @@ footer {
       <div class="stat"><div class="stat-num" id="statChannel">—</div><div class="stat-label">Канал</div></div>
       <div class="stat"><div class="stat-num" id="statPort">—</div><div class="stat-label">Порт</div></div>
       <div class="stat"><div class="stat-num" id="statMsgs">0</div><div class="stat-label">Сообщений</div></div>
-      <div class="stat"><div class="stat-num" id="statUptime">0:00</div><div class="stat-label">Аптайм</div></div>
+      <div class="stat"><div class="stat-num" id="statUptime">Офлайн</div><div class="stat-label" id="statUptimeLabel">Стрим</div></div>
     </div>
   <div class="url-strip" title="URL для OBS">
       <code id="obsUrl">http://localhost:—</code>
@@ -959,8 +959,9 @@ function update(st) {
   const pill = $('statusPill');
   const cls = st.chatConnected ? 'live' : (st.channel ? 'connecting' : 'off');
   pill.className = 'status-pill ' + cls;
+  const chLabel = st.channel ? ('#' + st.channel) : '';
   $('statusText').textContent = st.chatConnected
-    ? 'Подключено · ' + st.channel
+    ? (st.streamLive ? `В эфире · ${chLabel}` : `Подключено · ${chLabel}`)
     : (st.error ? st.error.slice(0, 40) : (st.channel ? 'Подключение…' : 'Канал не настроен'));
 
   currentObsUrl = st.obsUrl || '';
@@ -976,8 +977,19 @@ function update(st) {
     lastMsgs = st.messages;
   }
 
-  $('statUptime').textContent = (st.chatConnected && st.startedAt)
-    ? fmtUptime(Date.now() - st.startedAt) : '0:00';
+  const uptimeEl = $('statUptime');
+  const uptimeLabel = $('statUptimeLabel');
+  if (st.streamLive && st.streamStartedAt) {
+    uptimeEl.textContent = fmtUptime(Date.now() - st.streamStartedAt);
+    uptimeEl.style.color = '#ff5b5b';
+    if (uptimeLabel) {
+      uptimeLabel.textContent = (st.streamViewers > 0) ? `В эфире (${st.streamViewers})` : 'В эфире';
+    }
+  } else {
+    uptimeEl.textContent = 'Офлайн';
+    uptimeEl.style.color = '';
+    if (uptimeLabel) uptimeLabel.textContent = 'Стрим';
+  }
 
   const pv = $('preview');
   if (pv.dataset.base !== st.obsUrl) {

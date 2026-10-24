@@ -29,6 +29,9 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     emotes: 0,
     badges: 0,
     startedAt: null,
+    streamLive: false,
+    streamStartedAt: null,
+    streamViewers: 0,
     error: null,
     redeemConnected: false,
     redeemLogin: null,
@@ -970,6 +973,79 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     } catch (e) { console.error('[Helix] users error:', e.message); return null; }
   }
 
+  // ==================== СТАТУС И АПТАЙМ СТРИМА TWITCH ====================
+  let streamPollTimer = null;
+
+  async function fetchStreamInfo(channel, cfg) {
+    if (!channel) return { live: false, startedAt: null, viewers: 0 };
+
+    if (cfg && cfg.clientId && (appAccessToken || (cfg && cfg.userAccessToken))) {
+      try {
+        const res = await fetch('https://api.twitch.tv/helix/streams?user_login=' + encodeURIComponent(channel), {
+          headers: helixHeaders(cfg)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data && data.data[0]) {
+            const s = data.data[0];
+            return {
+              live: true,
+              startedAt: Date.parse(s.started_at),
+              viewers: s.viewer_count || 0
+            };
+          }
+          return { live: false, startedAt: null, viewers: 0 };
+        }
+      } catch (e) {}
+    }
+
+    try {
+      const cleanCh = channel.replace(/[^a-zA-Z0-9_]/g, '');
+      const q = '{ user(login: "' + cleanCh + '") { stream { id createdAt viewersCount } } }';
+      const res = await fetch('https://gql.twitch.tv/gql', {
+        method: 'POST',
+        headers: { 'Client-ID': 'kimne78kx3ncx6brgo4mv6wki5h1ko' },
+        body: JSON.stringify({ query: q })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const stream = data && data.data && data.data.user && data.data.user.stream;
+        if (stream && stream.createdAt) {
+          return {
+            live: true,
+            startedAt: Date.parse(stream.createdAt),
+            viewers: stream.viewersCount || 0
+          };
+        }
+        return { live: false, startedAt: null, viewers: 0 };
+      }
+    } catch (e) {}
+
+    return { live: false, startedAt: null, viewers: 0 };
+  }
+
+  async function updateStreamStatus(channel, cfg) {
+    if (!channel) {
+      state.streamLive = false;
+      state.streamStartedAt = null;
+      state.streamViewers = 0;
+      return;
+    }
+    const info = await fetchStreamInfo(channel, cfg);
+    state.streamLive = info.live;
+    state.streamStartedAt = info.startedAt;
+    state.streamViewers = info.viewers;
+  }
+
+  function startStreamPolling(channel, cfg) {
+    if (streamPollTimer) { clearInterval(streamPollTimer); streamPollTimer = null; }
+    if (!channel) return;
+    updateStreamStatus(channel, cfg);
+    streamPollTimer = setInterval(() => {
+      if (state.channel) updateStreamStatus(state.channel, getConfig());
+    }, 30000);
+  }
+
    async function load7TV(channel, channelId) {
     emoteMap = {};
     try {
@@ -1175,6 +1251,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       const channelId = await resolveTwitchUserId(currentConfig, state.channel);
       await load7TV(state.channel, channelId);
       connectChat(state.channel, currentConfig);
+      startStreamPolling(state.channel, currentConfig);
       state.emotes = Object.keys(emoteMap).length;
       state.badges = Object.keys(badgeMap).length;
       broadcast(JSON.stringify({ type: 'emotes', data: emoteMap }));
@@ -1258,6 +1335,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   // Корректное завершение: рвём внешние соединения, а не бросаем их на выходе
   async function shutdown() {
     eventSubStop = true;
+    if (streamPollTimer) { clearInterval(streamPollTimer); streamPollTimer = null; }
     stopDA();
     if (eventSubWs) { try { eventSubWs.close(); } catch (e) {} eventSubWs = null; }
     if (client) { try { client.disconnect().catch(() => {}); } catch (e) {} client = null; }
