@@ -9,10 +9,12 @@ const fs = require('fs');
 function createChatServer(options = {}) {
   const configPath = options.configPath || path.join(__dirname, 'config.json');
   const publicDir = options.publicDir || path.join(__dirname, 'public');
-    // Порт OAuth-коллбека фиксирован и не зависит от порта чата.
+
+  // Порт OAuth-коллбека фиксирован и не зависит от порта чата.
   // В консоли Twitch прописывается: http://localhost:6769/auth/callback
-const AUTH_PORT = 6769;
-const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
+  const AUTH_PORT = 6769;
+  const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
+  const DEFAULT_CLIENT_ID = 'zsgb0890siszkgvuoa7covgrayojmg';
 
   const app = express();
   const server = http.createServer(app);
@@ -35,19 +37,16 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     error: null,
     redeemConnected: false,
     redeemLogin: null,
-    eventSubActive: false,
-    daConnected: false,
-    daLogin: null,
-    rouletteUrl: ''
+    eventSubActive: false
   };
 
-  
   let client = null;
   let appToken = null;
   let badgeMap = {};
   let emoteMap = {};
   let currentConfig = null;
   let channelBadgesLoaded = false;
+
   // --- LRU-кэш: держит не больше max записей, вытесняя самых старых ---
   function makeLRU(max) {
     const m = new Map();
@@ -63,6 +62,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       clear: () => m.clear()
     };
   }
+
   // --- Redeems / EventSub / OAuth ---
   let userToken = null;
   let userRefresh = null;
@@ -77,22 +77,6 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   let pendingAuthState = null;
   const userColorCache = makeLRU(500);      // userId -> цвет ника (EventSub цвет не несёт)
   const recentEventIds = makeLRU(500);      // EventSub at-least-once: режем дубли по message_id
-  const recentDonationIds = makeLRU(200);   // DA at-least-once: режем дубли по id доната
-    // --- DonationAlerts: OAuth + Centrifugo ---
-  const DA_API = 'https://www.donationalerts.com/api/v1';
-  const DA_REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/da/callback';
-  const DA_SCOPE = 'oauth-user-show oauth-donation-subscribe';
-  let daToken = null;
-  let daRefresh = null;
-  let daExpiresAt = 0;
-  let daUserId = null;
-  let daUserName = null;
-  let daWs = null;
-  let daStop = false;
-  let pendingDaState = null;
-  let daReconnectTimer = null;
-  let daReconnectDelay = 4000;
-  const DA_RECONNECT_MAX = 60000;
 
   // ==================== CONFIG ====================
 
@@ -113,16 +97,13 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       clientId: cfg.clientId || '',
       clientSecret: cfg.clientSecret ? '••••••••' + cfg.clientSecret.slice(-4) : '',
       port: cfg.port || 6767,
-      pointsName: cfg.pointsName || '',
-      daClientId: cfg.daClientId || '',
-      daClientSecret: cfg.daClientSecret ? '••••••••' + cfg.daClientSecret.slice(-4) : '',
-      rouletteUrl: cfg.rouletteUrl || ''
+      pointsName: cfg.pointsName || ''
     });
   });
 
   app.post('/api/config', (req, res) => {
     const old = getConfig();
-    const { channel, clientId, clientSecret, port, pointsName, daClientId, daClientSecret, rouletteUrl } = req.body;
+    const { channel, clientId, clientSecret, port, pointsName } = req.body;
     if (!channel || !channel.trim()) return res.status(400).json({ error: 'channel required' });
 
     const clean = channel.trim().toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_]/g, '');
@@ -133,24 +114,15 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       channel: clean,
       clientId: (clientId || old.clientId || '').trim(),
       clientSecret: finalSecret,
-      port: parseInt(port) || old.port || 6767,
+      port: parseInt(port, 10) || old.port || 6767,
       pointsName: (pointsName || '').trim(),
-      daClientId: (daClientId || old.daClientId || '').trim(),
-      daClientSecret: (daClientSecret && !daClientSecret.startsWith('••••'))
-        ? daClientSecret.trim() : (old.daClientSecret || ''),
-      rouletteUrl: (rouletteUrl || old.rouletteUrl || '').trim(),
       style: old.style,
-      // токены редимов и DA не приходят с формы — переносим, чтобы не потерять
+      // токены редимов не приходят с формы — переносим, чтобы не потерять
       userAccessToken: old.userAccessToken,
       userRefreshToken: old.userRefreshToken,
       userTokenExpires: old.userTokenExpires,
       broadcasterId: old.broadcasterId,
-      broadcasterLogin: old.broadcasterLogin,
-      daAccessToken: old.daAccessToken,
-      daRefreshToken: old.daRefreshToken,
-      daExpiresAt: old.daExpiresAt,
-      daUserId: old.daUserId,
-      daUserName: old.daUserName
+      broadcasterLogin: old.broadcasterLogin
     };
 
     res.json({ ok: true, channel: clean, port: newCfg.port });
@@ -167,7 +139,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     next();
   });
 
-    // ==================== STYLE (стиль оверлея хранится в config.json) ====================
+  // ==================== STYLE (стиль оверлея хранится в config.json) ====================
   const DEFAULT_STYLE = {
     font: 'Segoe UI',
     size: 14,
@@ -189,7 +161,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     return { ...DEFAULT_STYLE, ...(cfg.style || {}) };
   }
 
-    // Панель в Electron открыта через file:// (origin null) — разрешаем ей кросс-запросы к стилю
+  // Панель в Electron открыта через file:// (origin null) — разрешаем ей кросс-запросы к стилю
   app.use('/api/style', (req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -220,39 +192,28 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     cfg.style = next;
     saveConfig(cfg);
     console.log('[Style] saved + broadcast');
-    // вещаем всем WS-клиентам (OBS, предпросмотр) — стиль применяется мгновенно, без перезагрузки страницы
+    // вещаем всем WS-клиентам (OBS) — стиль применяется мгновенно, без перезагрузки страницы
     broadcast(JSON.stringify({ type: 'style', data: next }));
     res.json({ ok: true, style: next });
   });
   app.use(express.static(publicDir));
 
-    // ==================== REDEEMS: OAuth + EventSub ====================
+  // ==================== REDEEMS: OAuth + EventSub ====================
 
   app.get('/api/redeem-status', (req, res) => {
-    const cfg = getConfig();
-    res.json({
-      connected: state.redeemConnected,
-      login: state.redeemLogin,
-      eventSubActive: state.eventSubActive,
-      canAuth: !!(cfg.clientId && cfg.clientSecret),
-      daConnected: state.daConnected,
-      daLogin: state.daLogin,
-      canDaAuth: !!(cfg.daClientId && cfg.daClientSecret)
-    });
+    res.json(redeemStatusPayload());
   });
 
   // --- SSE: сервер сам пушит изменения статуса, поллинг не нужен ---
   const sseClients = new Set();
   function redeemStatusPayload() {
     const cfg = getConfig();
+    const cid = cfg.clientId || DEFAULT_CLIENT_ID;
     return {
       connected: state.redeemConnected,
       login: state.redeemLogin,
       eventSubActive: state.eventSubActive,
-      canAuth: !!(cfg.clientId && cfg.clientSecret),
-      daConnected: state.daConnected,
-      daLogin: state.daLogin,
-      canDaAuth: !!(cfg.daClientId && cfg.daClientSecret)
+      canAuth: !!(cid && cfg.clientSecret)
     };
   }
   function notifyRedeemStatus() {
@@ -274,12 +235,13 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   // Шаг 1: кнопка в настройках ведёт сюда -> 302 на страницу авторизации Twitch
   app.get('/auth/start', (req, res) => {
     const cfg = getConfig();
-    if (!cfg.clientId) return res.status(400).send('Сначала укажите Client ID в настройках.');
+    const cid = cfg.clientId || DEFAULT_CLIENT_ID;
+    if (!cid) return res.status(400).send('Client ID не найден.');
     pendingAuthState = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
     const url =
       'https://id.twitch.tv/oauth2/authorize' +
       '?response_type=code' +
-      '&client_id=' + encodeURIComponent(cfg.clientId) +
+      '&client_id=' + encodeURIComponent(cid) +
       '&redirect_uri=' + encodeURIComponent(REDIRECT_URI) +
       '&scope=' + encodeURIComponent('channel:read:redemptions channel:read:subscriptions bits:read') +
       '&state=' + encodeURIComponent(pendingAuthState);
@@ -329,226 +291,6 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     }
   });
 
-  // ==================== DONATIONALERTS ====================
-
-  app.get('/da/auth/start', (req, res) => {
-    const cfg = getConfig();
-    if (!cfg.daClientId) return res.status(400).send('Сначала укажите Client ID DonationAlerts в настройках.');
-    pendingDaState = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-    const url =
-      'https://www.donationalerts.com/oauth/authorize' +
-      '?response_type=code' +
-      '&client_id=' + encodeURIComponent(cfg.daClientId) +
-      '&redirect_uri=' + encodeURIComponent(DA_REDIRECT_URI) +
-      '&scope=' + encodeURIComponent(DA_SCOPE) +
-      '&state=' + encodeURIComponent(pendingDaState);
-    res.redirect(url);
-  });
-
-  app.get('/da/callback', async (req, res) => {
-    const code = req.query.code;
-    const st = req.query.state;
-    const err = req.query.error;
-    if (err) return res.status(400).send(htmlPage('Ошибка DonationAlerts', 'DA вернул: ' + err));
-    if (!code || st !== pendingDaState) {
-      return res.status(400).send(htmlPage('Ошибка', 'Неверный state или отсутствует код DA. Попробуйте ещё раз.'));
-    }
-    pendingDaState = null;
-    try {
-      const cfg = getConfig();
-      const r = await fetch('https://www.donationalerts.com/oauth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          client_id: cfg.daClientId,
-          client_secret: cfg.daClientSecret,
-          redirect_uri: DA_REDIRECT_URI,
-          code
-        }).toString()
-      });
-      const data = await r.json();
-      if (!data.access_token) throw new Error('DA exchange: ' + (data.message || JSON.stringify(data)));
-      daToken = data.access_token;
-      daRefresh = data.refresh_token || null;
-      daExpiresAt = Date.now() + (data.expires_in || 3600) * 1000;
-
-      const u = await fetch(DA_API + '/user/oauth', { headers: daHeaders() }).then(x => x.json());
-      if (!u || !u.data || !u.data.id) throw new Error('DA user: нет id');
-      daUserId = u.data.id;
-      daUserName = u.data.name || u.data.code || null;
-
-      const save = getConfig();
-      save.daAccessToken = daToken;
-      save.daRefreshToken = daRefresh;
-      save.daExpiresAt = daExpiresAt;
-      save.daUserId = daUserId;
-      save.daUserName = daUserName;
-      saveConfig(save);
-
-      state.daLogin = daUserName;
-      notifyRedeemStatus();
-      console.log('[DA] Authorized as', daUserName, '(' + daUserId + ')');
-      startDA();
-      res.send(htmlPage('Готово', 'DonationAlerts подключены для <b>' + esc(daUserName || '') + '</b>. Эту вкладку можно закрыть.'));
-    } catch (e) {
-      console.error('[DA] callback error:', e.message);
-      res.status(500).send(htmlPage('Ошибка подключения DA', e.message));
-    }
-  });
-
-  function daHeaders() {
-    return { 'Authorization': 'Bearer ' + daToken, 'Accept': 'application/json' };
-  }
-
-  async function ensureDaToken() {
-    if (!daToken) return false;
-    if (Date.now() < daExpiresAt - 60000) return true;
-    if (!daRefresh) return false;
-    try {
-      const cfg = getConfig();
-      const r = await fetch('https://www.donationalerts.com/oauth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          client_id: cfg.daClientId,
-          client_secret: cfg.daClientSecret,
-          refresh_token: daRefresh
-        }).toString()
-      });
-      const data = await r.json();
-      if (!data.access_token) throw new Error('DA refresh: ' + (data.message || 'no token'));
-      daToken = data.access_token;
-      if (data.refresh_token) daRefresh = data.refresh_token;
-      daExpiresAt = Date.now() + (data.expires_in || 3600) * 1000;
-      const save = getConfig();
-      save.daAccessToken = daToken;
-      save.daRefreshToken = daRefresh;
-      save.daExpiresAt = daExpiresAt;
-      saveConfig(save);
-      return true;
-    } catch (e) {
-      console.error('[DA] token unusable:', e.message);
-      return false;
-    }
-  }
-
-  function startDA() {
-    daStop = false;
-    if (daWs) {
-      const old = daWs;
-      daWs = null;
-      try { old.removeAllListeners && old.removeAllListeners(); } catch (e) {}
-      try { old.close(); } catch (e) {}
-    }
-    connectDA();
-  }
-  function stopDA() {
-    daStop = true;
-    if (daWs) { try { daWs.close(); } catch (e) {} daWs = null; }
-  }
-  function resetDA() {
-    stopDA();
-    daToken = null; daRefresh = null; daExpiresAt = 0; daUserId = null; daUserName = null;
-    state.daConnected = false; state.daLogin = null;
-    notifyRedeemStatus();
-    const save = getConfig();
-    delete save.daAccessToken; delete save.daRefreshToken; delete save.daExpiresAt;
-    delete save.daUserId; delete save.daUserName;
-    saveConfig(save);
-  }
-  function scheduleDaReconnect() {
-    if (daStop || daReconnectTimer) return;
-    daReconnectTimer = setTimeout(() => { daReconnectTimer = null; connectDA(); }, daReconnectDelay);
-    daReconnectDelay = Math.min(daReconnectDelay * 2, DA_RECONNECT_MAX);
-  }
-  function resetDaReconnect() { daReconnectDelay = 4000; }
-
-  // Centrifugo: connect -> subscribe(HTTP) -> subscribe(WS) -> слушаем донаты
-  async function connectDA() {
-    if (daStop) return;
-    if (!(await ensureDaToken())) { resetDA(); return; }
-    let user = null;
-    try { user = await fetch(DA_API + '/user/oauth', { headers: daHeaders() }).then(r => r.json()); } catch (e) {}
-    const socketToken = user && user.data && user.data.socket_connection_token;
-    if (!user || !user.data || !socketToken) { scheduleDaReconnect(); return; }
-    daUserId = user.data.id;
-    daUserName = user.data.name || user.data.code || daUserName;
-
-    let ws;
-    try { ws = new WebSocket('wss://centrifugo.donationalerts.com/connection/websocket'); }
-    catch (e) { console.error('[DA] ws create error:', e.message); scheduleDaReconnect(); return; }
-    daWs = ws;
-
-    ws.on('open', () => {
-      console.log('[DA] centrifugo socket open');
-      ws.send(JSON.stringify({ id: 1, params: { token: socketToken } }));
-    });
-
-    ws.on('message', async (raw) => {
-      let m; try { m = JSON.parse(raw); } catch (e) { return; }
-      if (m.id === 1 && m.result && m.result.client) {
-        const channel = '$alerts:donation_' + daUserId;
-        let sub = null;
-        try {
-          sub = await fetch(DA_API + '/centrifuge/subscribe', {
-            method: 'POST',
-            headers: { ...daHeaders(), 'Content-Type': 'application/json' },
-            body: JSON.stringify({ client: m.result.client, channels: [channel] })
-          }).then(r => r.json());
-        } catch (e) {}
-        const ch = sub && Array.isArray(sub.channels) && sub.channels.find(c => c.channel === channel);
-        if (!ch || !ch.token) {
-          console.error('[DA] subscription token not received');
-          try { ws.close(); } catch (e) {}
-          return;
-        }
-        ws.send(JSON.stringify({ id: 2, method: 1, params: { channel: channel, token: ch.token } }));
-        state.daConnected = true;
-        state.daLogin = daUserName || String(daUserId);
-        notifyRedeemStatus();
-        resetDaReconnect();
-        console.log('[DA] subscribed to', channel);
-      } else if (m.result && m.result.data && m.result.data.data) {
-        handleDaDonation(m.result.data.data);
-      }
-    });
-
-    ws.on('close', () => {
-      console.log('[DA] socket closed');
-      state.daConnected = false;
-      notifyRedeemStatus();
-      if (daWs === ws) daWs = null;
-      if (!daStop) scheduleDaReconnect();
-    });
-    ws.on('error', (e) => console.error('[DA] ws error:', e.message));
-  }
-
-  function handleDaDonation(d) {
-    if (d.id) {
-      if (recentDonationIds.has(d.id)) {
-        console.log('[DA] duplicate donation skipped:', d.id);
-        return;
-      }
-      recentDonationIds.set(d.id, true);
-    }
-    console.log('[DA] donation:', d.id, '|', d.username, '|', d.amount, d.currency);
-    broadcast(JSON.stringify({
-      type: 'donation',
-      data: {
-        id: d.id,
-        username: d.username || 'Аноним',
-        amount: d.amount,
-        currency: d.currency || '',
-        message: d.message || '',
-        timestamp: Date.now()
-      }
-      
-    }));
-    
-  }  
-  
   function htmlPage(title, body) {
     return '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>' + esc(title) +
       '</title><style>body{background:#0e0e10;color:#efeff1;font-family:Segoe UI,sans-serif;' +
@@ -565,11 +307,12 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   }
 
   async function exchangeCode(cfg, code) {
+    const cid = cfg.clientId || DEFAULT_CLIENT_ID;
     const r = await fetch('https://id.twitch.tv/oauth2/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: cfg.clientId,
+        client_id: cid,
         client_secret: cfg.clientSecret,
         code,
         grant_type: 'authorization_code',
@@ -582,11 +325,12 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   }
 
   async function refreshUserToken(cfg) {
+    const cid = cfg.clientId || DEFAULT_CLIENT_ID;
     const r = await fetch('https://id.twitch.tv/oauth2/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: cfg.clientId,
+        client_id: cid,
         client_secret: cfg.clientSecret,
         grant_type: 'refresh_token',
         refresh_token: userRefresh
@@ -616,8 +360,9 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   }
 
   async function fetchBroadcaster(cfg) {
+    const cid = cfg.clientId || DEFAULT_CLIENT_ID;
     const r = await fetch('https://api.twitch.tv/helix/users', {
-      headers: { 'Client-Id': cfg.clientId, 'Authorization': 'Bearer ' + userToken }
+      headers: { 'Client-Id': cid, 'Authorization': 'Bearer ' + userToken }
     });
     const data = await r.json();
     if (!data.data || !data.data[0]) throw new Error('helix/users: ' + (data.message || 'empty'));
@@ -736,7 +481,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   function scheduleReconnect(cfg) {
     if (eventSubStop || reconnectTimer) return;
     reconnectTimer = setTimeout(() => { reconnectTimer = null; connectEventSub(cfg); }, reconnectDelay);
-    reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX); // 4 → 8 → 16 → ... → 60
+    reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX);
   }
   function resetReconnect() { reconnectDelay = 4000; }
 
@@ -750,11 +495,12 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
 
   async function createSubscription(cfg) {
     if (!eventSubSessionId || !broadcasterId) return;
+    const cid = cfg.clientId || DEFAULT_CLIENT_ID;
     for (const [type, version] of EVENTSUB_TYPES) {
       const r = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
         method: 'POST',
         headers: {
-          'Client-Id': cfg.clientId,
+          'Client-Id': cid,
           'Authorization': 'Bearer ' + userToken,
           'Content-Type': 'application/json'
         },
@@ -768,7 +514,6 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       const data = await r.json();
       if (!r.ok) {
         if (r.status === 401 && await ensureUserToken()) return createSubscription(cfg);
-        // 403 = не хватает скоупа (пользователь не переавторизовался) — логируем и идём дальше
         console.error('[EventSub] subscribe', type, '-> HTTP', r.status, ':', data.message || '');
         continue;
       }
@@ -779,8 +524,6 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     notifyRedeemStatus();
     console.log('[EventSub] subscriptions done for', broadcasterLogin);
   }
-
-
 
   function handleNotification(payload, meta) {
     if (meta && meta.message_id) {
@@ -881,18 +624,17 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     }));
   }
 
-  
-
   // ==================== BADGES ====================
 
   async function getAppToken(cfg) {
-    if (!cfg.clientId || !cfg.clientSecret) return;
+    const cid = cfg.clientId || DEFAULT_CLIENT_ID;
+    if (!cid || !cfg.clientSecret) return;
     try {
       const res = await fetch('https://id.twitch.tv/oauth2/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          client_id: cfg.clientId,
+          client_id: cid,
           client_secret: cfg.clientSecret,
           grant_type: 'client_credentials'
         }).toString()
@@ -904,40 +646,75 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   }
 
   function helixHeaders(cfg) {
-    return { 'Client-Id': cfg.clientId, 'Authorization': `Bearer ${appToken}` };
+    const cid = cfg.clientId || DEFAULT_CLIENT_ID;
+    return { 'Client-Id': cid, 'Authorization': `Bearer ${appToken}` };
   }
 
   function parseHelixBadges(data) {
+    if (!data || !Array.isArray(data.data)) return;
     for (const set of data.data) {
-      for (const v of set.versions) {
+      for (const v of set.versions || []) {
         badgeMap[`${set.set_id}/${v.id}`] = v.image_url_1x || v.image_url_2x;
       }
     }
   }
 
   async function loadBadges(cfg) {
-    if (!appToken) return;
+    if (appToken && (cfg.clientId || DEFAULT_CLIENT_ID)) {
+      try {
+        const res = await fetch('https://api.twitch.tv/helix/chat/badges/global', { headers: helixHeaders(cfg) });
+        if (res.ok) {
+          badgeMap = {};
+          parseHelixBadges(await res.json());
+          console.log(`[Badges] Global: ${Object.keys(badgeMap).length}`);
+          return;
+        }
+      } catch (e) { console.error('[Badges] Helix:', e.message); }
+    }
+    // IVR fallback (работает без ключей для всех каналов)
     try {
-      const res = await fetch('https://api.twitch.tv/helix/chat/badges/global', { headers: helixHeaders(cfg) });
+      const res = await fetch('https://api.ivr.fi/v2/twitch/badges/global');
       if (res.ok) {
         badgeMap = {};
-        parseHelixBadges(await res.json());
-        console.log(`[Badges] Global: ${Object.keys(badgeMap).length}`);
+        const data = await res.json();
+        for (const set of data) {
+          for (const v of set.versions || []) {
+            badgeMap[`${set.set_id}/${v.id}`] = v.image_url_1x || v.image_url_2x;
+          }
+        }
+        console.log(`[Badges] Global (IVR): ${Object.keys(badgeMap).length}`);
       }
-    } catch (e) { console.error('[Badges]', e.message); }
+    } catch (e) { console.error('[Badges] IVR Global:', e.message); }
   }
 
   async function loadChannelBadges(roomId, cfg) {
-    if (!appToken) return;
+    if (appToken && (cfg.clientId || DEFAULT_CLIENT_ID)) {
+      try {
+        const res = await fetch(`https://api.twitch.tv/helix/chat/badges?broadcaster_id=${roomId}`, { headers: helixHeaders(cfg) });
+        if (res.ok) {
+          parseHelixBadges(await res.json());
+          console.log(`[Badges] Channel: total ${Object.keys(badgeMap).length}`);
+          broadcast(JSON.stringify({ type: 'badges', data: badgeMap }));
+          state.badges = Object.keys(badgeMap).length;
+          return;
+        }
+      } catch (e) { console.error('[Badges] Helix Channel:', e.message); }
+    }
+    // IVR fallback по числовому ID комнаты
     try {
-      const res = await fetch(`https://api.twitch.tv/helix/chat/badges?broadcaster_id=${roomId}`, { headers: helixHeaders(cfg) });
+      const res = await fetch(`https://api.ivr.fi/v2/twitch/badges/channel?id=${roomId}`);
       if (res.ok) {
-        parseHelixBadges(await res.json());
-        console.log(`[Badges] Channel: total ${Object.keys(badgeMap).length}`);
+        const data = await res.json();
+        for (const set of data) {
+          for (const v of set.versions || []) {
+            badgeMap[`${set.set_id}/${v.id}`] = v.image_url_1x || v.image_url_2x;
+          }
+        }
+        console.log(`[Badges] Channel (IVR): total ${Object.keys(badgeMap).length}`);
         broadcast(JSON.stringify({ type: 'badges', data: badgeMap }));
         state.badges = Object.keys(badgeMap).length;
       }
-    } catch (e) { console.error('[Badges]', e.message); }
+    } catch (e) { console.error('[Badges] IVR Channel:', e.message); }
   }
 
   // ==================== 7TV ====================
@@ -951,7 +728,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       files.find(f => f.name === '1x.webp') ||
       files.find(f => /\.webp$/.test(f.name)) ||
       null;
-    if (!file) return null;   // avif-только эмодзи в OBS не декодируются — пусть будут текстом, чем битой картинкой
+    if (!file) return null;   // avif-только эмодзи в OBS не декодируются
     return { url: `${base}/${file.name}`, width: file.width || 28, height: file.height || 28 };
   }
 
@@ -962,15 +739,35 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       if (info) target[emote.name] = info;
     }
   }
-  // 7TV REST понимает только числовой Twitch-ID — резолвим логин через Helix
+
+  // 7TV REST понимает только числовой Twitch-ID — резолвим логин через Helix или Twitch GQL
   async function resolveTwitchUserId(cfg, login) {
-    if (!appToken) return null;
+    if (appToken && (cfg.clientId || DEFAULT_CLIENT_ID)) {
+      try {
+        const res = await fetch('https://api.twitch.tv/helix/users?login=' + encodeURIComponent(login), { headers: helixHeaders(cfg) });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data && data.data[0]) return data.data[0].id;
+        }
+      } catch (e) {}
+    }
+    // GQL fallback (без авторизации, мгновенный резолв логина в ID)
     try {
-      const res = await fetch('https://api.twitch.tv/helix/users?login=' + encodeURIComponent(login), { headers: helixHeaders(cfg) });
-      if (!res.ok) { console.log('[Helix] users?login', login, '-> HTTP', res.status); return null; }
-      const data = await res.json();
-      return data.data && data.data[0] ? data.data[0].id : null;
-    } catch (e) { console.error('[Helix] users error:', e.message); return null; }
+      const cleanCh = login.replace(/[^a-zA-Z0-9_]/g, '');
+      const q = '{ user(login: "' + cleanCh + '") { id } }';
+      const res = await fetch('https://gql.twitch.tv/gql', {
+        method: 'POST',
+        headers: { 'Client-ID': 'kimne78kx3ncx6brgo4mv6wki5h1ko' },
+        body: JSON.stringify({ query: q })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.data && data.data.user && data.data.user.id) {
+          return data.data.user.id;
+        }
+      }
+    } catch (e) {}
+    return null;
   }
 
   // ==================== СТАТУС И АПТАЙМ СТРИМА TWITCH ====================
@@ -979,7 +776,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   async function fetchStreamInfo(channel, cfg) {
     if (!channel) return { live: false, startedAt: null, viewers: 0 };
 
-    if (cfg && cfg.clientId && (appAccessToken || (cfg && cfg.userAccessToken))) {
+    if (cfg && (cfg.clientId || DEFAULT_CLIENT_ID) && (appToken || (cfg && cfg.userAccessToken))) {
       try {
         const res = await fetch('https://api.twitch.tv/helix/streams?user_login=' + encodeURIComponent(channel), {
           headers: helixHeaders(cfg)
@@ -1046,7 +843,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     }, 30000);
   }
 
-   async function load7TV(channel, channelId) {
+  async function load7TV(channel, channelId) {
     emoteMap = {};
     try {
       const gRes = await fetch('https://7tv.io/v3/emote-sets/global');
@@ -1054,7 +851,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       else console.log('[7TV] Global -> HTTP', gRes.status);
     } catch (e) { console.error('[7TV] Global:', e.message); }
 
-    // Канальный пак: основной путь — числовой ID, логин только как запасной
+    // Канальный пак: числовой ID в приоритете
     const targets = [];
     if (channelId) targets.push(channelId);
     targets.push(channel);
@@ -1098,50 +895,45 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     const username = tags['display-name'] || tags.login || tags.username || '?';
     if (tags.color && uid) userColorCache.set(uid, tags.color);
 
+    console.log('[Streak] watchstreak detected:', username, streak, 'months/streams');
     broadcast(JSON.stringify({
       type: 'watchstreak',
       data: {
         userId: uid,
         username,
-        color: (uid && userColorCache.get(uid)) || tags.color || '#efeff1',
-        streak,
-        text: sysMsg,
+        color: tags.color || evColor(uid),
+        streak: parseInt(streak, 10) || streak || '1',
+        message: sysMsg,
         timestamp: Date.now()
       }
     }));
-    console.log('[WatchStreak]', username, '| streak:', streak);
   }
 
-
-  // ==================== CHAT ====================
+  // ==================== TMI.JS (TWITCH CHAT) ====================
 
   function connectChat(channel, cfg) {
     if (client) {
-      const old = client;
+      try { client.disconnect(); } catch (e) {}
       client = null;
-      // сначала снимаем ВСЕ слушатели: даже если зомби-сокет доживёт,
-      // он больше ничего не пришлёт в broadcast
-      try { old.removeAllListeners(); } catch (e) {}
-      old.disconnect().catch(() => {});
     }
-    channelBadgesLoaded = false;
+
     state.chatConnected = false;
+    channelBadgesLoaded = false;
 
     client = new tmi.Client({
-      options: { debug: false },
       connection: { reconnect: true, secure: true },
       channels: [channel]
     });
 
     client.on('connected', () => {
       state.chatConnected = true;
-      state.startedAt = Date.now();
       state.error = null;
       console.log(`[Chat] Connected to #${channel}`);
     });
 
-    client.on('disconnected', () => {
+    client.on('disconnected', (reason) => {
       state.chatConnected = false;
+      state.error = reason;
       console.log('[Chat] Disconnected');
     });
 
@@ -1169,54 +961,89 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
           badges: tags.badges ? Object.entries(tags.badges).map(([name, version]) => ({ name, version })) : [],
           message,
           emotes: parseTwitchEmotes(tags.emotes, message),
-          bits: parseInt(tags.bits) || 0,
-          redeem: !!tags['custom-reward-id'],
+          bits: tags.bits || null,
           timestamp: Date.now()
         }
       }));
     });
 
-    // ==================== МОДЕРАЦИЯ ЧАТА (Удаление сообщений) ====================
+    // Модерация: удаление одного сообщения по id
     client.on('messagedeleted', (ch, username, deletedMessage, userstate) => {
-      const targetId = userstate && (userstate['target-msg-id'] || userstate.targetMsgId);
-      if (targetId) {
-        broadcast(JSON.stringify({
-          type: 'delete_message',
-          id: targetId
-        }));
+      const msgId = userstate && (userstate['target-msg-id'] || userstate.id);
+      if (msgId) {
+        console.log('[Mod] Message deleted:', msgId);
+        broadcast(JSON.stringify({ type: 'delete_message', id: msgId }));
       }
+    });
+
+    // Модерация: тайм-аут или бан пользователя (удалить все сообщения юзера)
+    client.on('clearchat', (ch) => {
+      console.log('[Mod] Chat cleared');
+      broadcast(JSON.stringify({ type: 'clear_chat' }));
     });
 
     client.on('timeout', (ch, username) => {
-      if (username) {
-        broadcast(JSON.stringify({
-          type: 'clear_user',
-          username: username.toLowerCase()
-        }));
-      }
+      console.log('[Mod] Timeout user:', username);
+      broadcast(JSON.stringify({ type: 'clear_user', username }));
     });
 
     client.on('ban', (ch, username) => {
-      if (username) {
+      console.log('[Mod] Ban user:', username);
+      broadcast(JSON.stringify({ type: 'clear_user', username }));
+    });
+
+    // Нативные Twitch usernotice (сабы, ресабы, гифты, стрики)
+    client.on('usernotice', (msgid, ch, tags) => {
+      const msgId = msgid || (tags && tags['msg-id']) || '';
+      if (!msgId) return;
+
+      if (msgId === 'sub' || msgId === 'resub') {
+        const uid = tags['user-id'];
+        const username = tags['display-name'] || tags.login || '?';
+        const months = tags['msg-param-cumulative-months'] || tags['msg-param-months'] || 1;
+        const streak = tags['msg-param-streak-months'] || 0;
+        const tier = tags['msg-param-sub-plan'] || '1000';
+        const msgText = (tags['system-msg'] || '').replace(/\\s/g, ' ');
+        if (tags.color && uid) userColorCache.set(uid, tags.color);
         broadcast(JSON.stringify({
-          type: 'clear_user',
-          username: username.toLowerCase()
+          type: msgId === 'resub' ? 'resub' : 'sub',
+          data: {
+            userId: uid,
+            username,
+            color: tags.color || evColor(uid),
+            tier,
+            months,
+            streak,
+            message: msgText,
+            timestamp: Date.now()
+          }
         }));
+      } else if (msgId === 'subgift' || msgId === 'anonsubgift') {
+        const uid = tags['user-id'];
+        const isAnon = msgId === 'anonsubgift' || !tags['display-name'];
+        const username = isAnon ? 'Аноним' : (tags['display-name'] || tags.login || '?');
+        const count = tags['msg-param-mass-gift-count'] || tags['msg-param-gift-months'] || 1;
+        const tier = tags['msg-param-sub-plan'] || '1000';
+        if (tags.color && uid) userColorCache.set(uid, tags.color);
+        broadcast(JSON.stringify({
+          type: 'subgift',
+          data: {
+            userId: uid,
+            username,
+            color: tags.color || evColor(uid),
+            total: count,
+            tier,
+            timestamp: Date.now()
+          }
+        }));
+      } else {
+        handleWatchStreakNotice(msgId, tags);
       }
     });
 
-    client.on('usernotice', (msgid, ch, tags, msg) => {
-      handleWatchStreakNotice(msgid, tags);
-    });
-
-    client.on('clearchat', () => {
-      broadcast(JSON.stringify({
-        type: 'clear_chat'
-      }));
-    });
-
-    client.connect().catch(err => {
-      state.error = 'IRC: ' + (err.message || err);
+    client.connect().catch((err) => {
+      state.chatConnected = false;
+      state.error = err.message || String(err);
       console.error('[Chat]', err);
     });
   }
@@ -1226,7 +1053,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     if (!emotesTag) return result;
     for (const [id, positions] of Object.entries(emotesTag)) {
       const [start, end] = positions[0].split('-');
-      const name = message.substring(parseInt(start), parseInt(end) + 1);
+      const name = message.substring(parseInt(start, 10), parseInt(end, 10) + 1);
       result[name] = `https://static-cdn.jtvnw.net/emoticons/v2/${id}/default/dark/2.0`;
     }
     return result;
@@ -1264,7 +1091,6 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   async function applyConfig(cfg) {
     const portChanged = cfg.port && cfg.port !== state.port;
     currentConfig = cfg;
-    state.rouletteUrl = cfg.rouletteUrl || '';
     saveConfig(cfg);
     if (portChanged) {
       state.port = cfg.port;
@@ -1279,7 +1105,6 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   async function start() {
     currentConfig = getConfig();
     state.port = currentConfig.port || 6767;
-    state.rouletteUrl = currentConfig.rouletteUrl || '';
     await new Promise((resolve, reject) => {
       server.once('error', reject);
       server.listen(state.port, () => resolve());
@@ -1306,16 +1131,6 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
         .catch(() => resetRedeem());
     }
 
-    // поднимаем DonationAlerts, если токен уже сохранён
-    daToken = currentConfig.daAccessToken || null;
-    daRefresh = currentConfig.daRefreshToken || null;
-    daExpiresAt = currentConfig.daExpiresAt || 0;
-    daUserId = currentConfig.daUserId || null;
-    daUserName = currentConfig.daUserName || null;
-    if (daToken && daUserId) {
-      state.daLogin = daUserName;
-      startDA();
-    }
     return state;
   }
 
@@ -1336,7 +1151,6 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   async function shutdown() {
     eventSubStop = true;
     if (streamPollTimer) { clearInterval(streamPollTimer); streamPollTimer = null; }
-    stopDA();
     if (eventSubWs) { try { eventSubWs.close(); } catch (e) {} eventSubWs = null; }
     if (client) { try { client.disconnect().catch(() => {}); } catch (e) {} client = null; }
     if (authServer) { try { authServer.close(); } catch (e) {} }

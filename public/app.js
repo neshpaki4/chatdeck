@@ -2,7 +2,7 @@ const chatContainer = document.getElementById('chat-container');
 const MAX_MESSAGES = 50;
 const _ovParams = new URLSearchParams(location.search);
 
-// 1.3.3: стиль — сервер как база, URL-параметры как переопределение (для старых OBS-ссылок)
+// стиль — сервер как база, URL-параметры как переопределение
 let ovFont = null, ovSize = 0, ovBgOff = false, ovHideOff = false, ovPoints = 'баллов', ovEmoteSize = 20;
 let ovGap = 6, ovTextColor = '#efeff1', ovBgColor = '#0f0f12', ovBgOpacity = 82, ovShowBadges = true, ovHighlightRoles = true;
 
@@ -61,6 +61,7 @@ function applyUrlOverrides() {
   const em = parseInt(_ovParams.get('emote'), 10); if (em > 0) ovEmoteSize = em;
   const ha = parseInt(_ovParams.get('hideAfter'), 10); if (ha > 0) messageLifetime = ha;
 }
+
 const POINTS_ICON =
   '<svg class="redeem-ico" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
   '<path d="M12 2 L20 9 L12 22 L4 9 Z" fill="#7c3aed"/>' +
@@ -70,22 +71,11 @@ const POINTS_ICON =
   '<path d="M12 12 L4 9 L12 22 Z" fill="#8b5cf6"/>' +
   '<circle cx="9.4" cy="8" r="1.3" fill="#fff" opacity="0.85"/>' +
   '</svg>';
-const DONATION_ICON =
-  '<svg class="donation-ico" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-  '<path d="M12 21s-7.5-4.9-10-9.5C.5 8 2.5 4.5 6 4.5c2.2 0 3.6 1.2 4.5 2.6.9-1.4 2.3-2.6 4.5-2.6 3.5 0 5.5 3.5 4 7-2.5 4.6-10 9.5-10 9.5z" fill="#ffb454"/>' +
-  '<path d="M6.8 7.6c-1.5.2-2.6 1.4-2.7 2.9" stroke="#ffe3bd" stroke-width="1.4" stroke-linecap="round"/>' +
-  '</svg>';
-const CURRENCY_SIGN = { RUB: '₽', USD: '$', EUR: '€', UAH: '₴', BYN: 'Br', KZT: '₸', GBP: '£', JPY: '¥' };
-function formatAmount(a) {
-  const n = Number(a);
-  if (!isFinite(n)) return String(a);
-  return (n % 1 === 0) ? String(n) : n.toFixed(2);
-}
+
 let messageLifetime = 30000;
 const HIDE_DURATION = 500;
 let emoteMap = {};
 let badgeMap = {};
-
 
 // ======================== WEBSOCKET ========================
 
@@ -106,9 +96,6 @@ ws.onmessage = (event) => {
   }
   if (msg.type === 'redeem') {
     renderRedeem(msg.data);
-  }
-  if (msg.type === 'donation') {
-    renderDonation(msg.data);
   }
   if (msg.type === 'cheer') {
     renderCheer(msg.data);
@@ -141,66 +128,76 @@ ws.onmessage = (event) => {
     }
   }
   if (msg.type === 'clear_chat') {
-    clearAllChatMessages();
+    chatContainer.innerHTML = '';
   }
   if (msg.type === 'badges') {
-  badgeMap = msg.data;
+    badgeMap = msg.data;
   }
-   if (msg.type === 'style') {
+  if (msg.type === 'style') {
     const d = msg.data || {};
-    const prevHideOff = ovHideOff;
-    const prevLife = messageLifetime;
-    applyStyleObject(d);
+    if (d.font !== undefined) ovFont = d.font || null;
+    if (d.size !== undefined) ovSize = d.size;
+    if (d.gap !== undefined) ovGap = d.gap;
+    if (d.textColor !== undefined) ovTextColor = d.textColor;
+    if (d.bgColor !== undefined) ovBgColor = d.bgColor;
+    if (d.bgOpacity !== undefined) ovBgOpacity = d.bgOpacity;
+    if (d.showBadges !== undefined) ovShowBadges = d.showBadges;
+    if (d.highlightRoles !== undefined) ovHighlightRoles = d.highlightRoles;
+    if (d.bg !== undefined) ovBgOff = !d.bg;
+    if (d.hide !== undefined) ovHideOff = !d.hide;
+    if (d.points !== undefined) ovPoints = d.points || 'баллов';
+    if (d.emote !== undefined) ovEmoteSize = d.emote;
+    if (d.hideAfter !== undefined) messageLifetime = d.hideAfter;
     applyUrlOverrides();
     applyStyleVars();
-    if (ovHideOff !== prevHideOff || messageLifetime !== prevLife) {
-      const nodes = chatContainer.children;
-      for (let i = 0; i < nodes.length; i++) {
-        const el = nodes[i];
-        if (ovHideOff) {
-          clearTimeout(el._hideTimer); clearTimeout(el._removeTimer);
-          el._hideTimer = null;
-          el.classList.remove('hiding');
-          el.style.maxHeight = ''; el.style.overflow = '';
-        } else {
-          clearTimeout(el._hideTimer); el._hideTimer = null;
-          if (!el.classList.contains('hiding')) scheduleHide(el);
-        }
-      }
-    }
+    refreshAllMessagesBadges();
   }
 };
 
 ws.onclose = () => {
+  console.log('[WS] Disconnected, retry in 3s...');
   setTimeout(() => location.reload(), 3000);
 };
 
-// ======================== общие блоки рендеринга ========================
+// ======================== PRELOAD ========================
 
-function buildBadgesHTML(badges) {
-  if (!badges || !badges.length) return '';
-  let html = '<span class="badges-wrap">';
-  for (const badge of badges) {
-    const key = badge.name + '/' + badge.version;
-    let url = badgeMap[key];
-    if (!url && badge.name === 'subscriber') url = badgeMap['subscriber/0'];
-    if (url) html += '<img class="badge" src="' + url + '" width="18" height="18" alt="" title="' + badge.name + '">';
-  }
-  return html + '</span>';
+const preloadedUrls = new Set();
+function preloadEmote(url) {
+  if (!url || preloadedUrls.has(url)) return;
+  preloadedUrls.add(url);
+  const img = new Image();
+  img.src = url;
+}
+
+// ======================== RENDER ========================
+
+function removeMessageElement(div) {
+  if (!div) return;
+  if (div._hideTimer) clearTimeout(div._hideTimer);
+  if (div._removeTimer) clearTimeout(div._removeTimer);
+  div.classList.add('hiding');
+  setTimeout(() => { if (div.parentNode) div.parentNode.removeChild(div); }, HIDE_DURATION);
 }
 
 function appendAndTrim(div) {
   chatContainer.appendChild(div);
-  if (!ovHideOff) scheduleHide(div);
   while (chatContainer.children.length > MAX_MESSAGES) {
-    const old = chatContainer.firstChild;
-    clearTimeout(old._hideTimer);
-    clearTimeout(old._removeTimer);
+    const old = chatContainer.children[0];
+    if (old._hideTimer) clearTimeout(old._hideTimer);
+    if (old._removeTimer) clearTimeout(old._removeTimer);
     chatContainer.removeChild(old);
   }
+  if (!ovHideOff) scheduleMessageHide(div);
 }
 
-// ======================== RENDER ========================
+function scheduleMessageHide(div) {
+  div._hideTimer = setTimeout(() => {
+    div.classList.add('hiding');
+    div._removeTimer = setTimeout(() => {
+      if (div.parentNode) div.parentNode.removeChild(div);
+    }, HIDE_DURATION);
+  }, messageLifetime);
+}
 
 function buildMessageHTML(data) {
   let html = buildBadgesHTML(data.badges);
@@ -211,34 +208,30 @@ function buildMessageHTML(data) {
     html += '<span class="bits" style="color:#ffd700;font-weight:bold;margin-left:5px;">' + data.bits + ' bits</span>';
   }
   if (data.redeem) {
-    html = '<div class="redeem-row">' + POINTS_ICON + '<div class="redeem-text">' + html + '</div></div>';
+    html += '<div class="redeem-badge">' + escapeHtml(data.redeem.name) + '</div>';
   }
   return html;
 }
 
-function removeMessageElement(el) {
-  if (!el || !el.isConnected) return;
-  clearTimeout(el._hideTimer);
-  clearTimeout(el._removeTimer);
-  el._hideTimer = null;
-  el._removeTimer = null;
-  el.style.maxHeight = el.offsetHeight + 'px';
-  el.style.overflow = 'hidden';
-  el.style.transition = 'max-height .15s ease-out, opacity .15s ease-out, margin .15s ease-out, padding .15s ease-out';
-  void el.offsetWidth;
-  el.style.opacity = '0';
-  el.style.maxHeight = '0px';
-  el.style.marginTop = '0px';
-  el.style.marginBottom = '0px';
-  el.style.paddingTop = '0px';
-  el.style.paddingBottom = '0px';
-  setTimeout(() => { if (el.isConnected) el.remove(); }, 160);
+function buildBadgesHTML(badges) {
+  if (!badges || !badges.length) return '';
+  let bHtml = '<span class="badges-wrap">';
+  for (const b of badges) {
+    const key = `${b.name}/${b.version}`;
+    const url = badgeMap[key];
+    if (url) {
+      bHtml += `<img class="badge" src="${url}" width="18" height="18" alt="${escapeHtml(b.name)}" title="${escapeHtml(b.name)}">`;
+    }
+  }
+  bHtml += '</span>';
+  return bHtml;
 }
 
-function clearAllChatMessages() {
-  const nodes = Array.from(chatContainer.children);
-  for (const el of nodes) {
-    removeMessageElement(el);
+function refreshAllMessagesBadges() {
+  const msgs = chatContainer.querySelectorAll('.chat-message');
+  for (let i = 0; i < msgs.length; i++) {
+    const m = msgs[i];
+    if (m._msgData) m.innerHTML = buildMessageHTML(m._msgData);
   }
 }
 
@@ -259,44 +252,20 @@ function renderMessage(data) {
   appendAndTrim(div);
 }
 
-
-// Предзагрузка картинок: греем кэш заранее, чтобы в OBS не было пустых слотов
-const _preloaded = new Set();
-function preloadEmote(url) {
-  if (!url || _preloaded.has(url)) return;
-  _preloaded.add(url);
-  const im = new Image();
-  im.src = url;
-}
-
-// Пак зрителя доехал — пересобираем его уже нарисованные сообщения с его эмодзи
-
-function scheduleHide(el) {
-  el._hideTimer = setTimeout(() => startHide(el), messageLifetime);
-}
-
-function startHide(el) {
-  if (!el.isConnected) return;
-  clearTimeout(el._hideTimer);
-  el.style.maxHeight = el.offsetHeight + 'px';
-  el.style.overflow = 'hidden';
-  void el.offsetWidth;
-  el.classList.add('hiding');
-  el._removeTimer = setTimeout(() => { if (el.isConnected) el.remove(); }, HIDE_DURATION + 60);
-}
-
 function renderRedeem(d) {
   const div = document.createElement('div');
   div.className = 'chat-message redeem-message';
+  if (d.userId) div.dataset.uid = d.userId;
+  if (d.id) div.dataset.redeemId = d.id;
   if (d.username) div.dataset.username = (d.username || '').toLowerCase();
 
+  const ptsWord = ovPoints ? ' ' + ovPoints : ' баллов';
+  const cost = d.cost != null ? ' (' + escapeHtml(String(d.cost)) + ptsWord + ')' : '';
   let text =
     '<span class="redeem-user" style="color:' + d.color + '">' + escapeHtml(d.username) + '</span>' +
-    ' <span class="redeem-verb">использовал</span> ' +
+    ' <span class="redeem-verb">активировал</span> ' +
     '<span class="redeem-reward">' + escapeHtml(d.rewardName) + '</span>' +
-    ' <span class="redeem-verb">за</span> ' +
-    '<span class="redeem-cost">' + escapeHtml(String(d.cost)) + '</span> ' +
-    escapeHtml(ovPoints);
+    '<span class="redeem-cost">' + cost + '</span>';
 
   if (d.userInput) {
     text += '<div class="redeem-input">&laquo;' + escapeHtml(d.userInput) + '&raquo;</div>';
@@ -304,22 +273,7 @@ function renderRedeem(d) {
   div.innerHTML = '<div class="redeem-row">' + POINTS_ICON + '<div class="redeem-text">' + text + '</div></div>';
   appendAndTrim(div);
 }
-function renderDonation(d) {
-  const div = document.createElement('div');
-  div.className = 'chat-message donation-message';
-  if (d.username) div.dataset.username = (d.username || '').toLowerCase();
 
-  const cur = CURRENCY_SIGN[(d.currency || '').toUpperCase()] || (d.currency || '');
-  let text =
-    '<span class="donation-user">' + escapeHtml(d.username) + '</span>' +
-    ' <span class="donation-verb">задонатил</span> ' +
-    '<span class="donation-sum">' + escapeHtml(formatAmount(d.amount)) + ' ' + escapeHtml(cur) + '</span>';
-  if (d.message) {
-    text += '<div class="donation-text">' + escapeHtml(d.message).replace(/\r?\n/g, '<br>') + '</div>';
-  }
-  div.innerHTML = '<div class="redeem-row">' + DONATION_ICON + '<div class="redeem-text">' + text + '</div></div>';
-  appendAndTrim(div);
-}
 const ICON_BITS =
   '<svg class="event-ico" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
   '<path d="M12 2 L21 8 L18 21 H6 L3 8 Z" fill="#ffd700"/>' +
@@ -336,7 +290,7 @@ const ICON_GIFT =
   '<rect x="10.6" y="7" width="2.8" height="14" fill="#0b7a55"/>' +
   '<path d="M12 7 C9 7 7.5 5.5 8 4 C8.5 2.5 11 3 12 5 C13 3 15.5 2.5 16 4 C16.5 5.5 15 7 12 7 Z" fill="#0b7a55"/>' +
   '</svg>';
-  const ICON_STREAK =
+const ICON_STREAK =
   '<svg class="event-ico" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
   '<path d="M12 2 C13 7 18 8.5 18 14 A6 6 0 0 1 6 14 C6 10.5 8.5 9 9 6 C10.5 7.5 11.5 9 11.5 11 C12.5 9.5 12.5 5 12 2 Z" fill="#4aa8ff"/>' +
   '<path d="M12 21 A3.4 3.4 0 0 1 8.6 17.6 C8.6 15.4 10.4 14.4 12 12.6 C13.6 14.4 15.4 15.4 15.4 17.6 A3.4 3.4 0 0 1 12 21 Z" fill="#bfe0ff"/>' +
@@ -350,7 +304,7 @@ function renderWatchStreak(d) {
     '<span class="event-user" style="color:' + d.color + '">' + escapeHtml(d.username) + '</span>' +
     ' <span class="event-verb">смотрит</span> ' +
     (d.streak ? '<span class="event-sum">' + escapeHtml(String(d.streak)) + ' стримов подряд</span>' : '<span class="event-sum">серия просмотров</span>');
-  if (d.text) text += '<div class="event-text">' + escapeHtml(d.text) + '</div>';
+  if (d.message) text += '<div class="event-text">' + escapeHtml(d.message) + '</div>';
   div.innerHTML = '<div class="redeem-row">' + ICON_STREAK + '<div class="redeem-text">' + text + '</div></div>';
   appendAndTrim(div);
 }
@@ -418,7 +372,7 @@ function renderEmotes(message, twitchEmotes, userPersonal) {
   const tokens = message.split(/\s+/);
   let html = '';
   for (const token of tokens) {
-    const info = userPersonal[token] || emoteMap[token];
+    const info = (userPersonal && userPersonal[token]) || emoteMap[token];
     if (info) {
       html += emoteImg(info.url, token);
     } else if (twitchEmotes && twitchEmotes[token]) {
@@ -443,7 +397,6 @@ function escapeHtml(text) {
 }
 
 // ==================== стиль оверлея через CSS-переменные ====================
-// Одна запись на documentElement вместо цикла по всем сообщениям.
 function applyStyleVars() {
   const r = document.documentElement.style;
   r.setProperty('--ov-font', ovFont ? ('"' + ovFont + '", "Segoe UI", Arial, sans-serif') : "'Segoe UI', Arial, sans-serif");
@@ -459,8 +412,6 @@ function applyStyleVars() {
     r.setProperty('--ov-pad', '2px 0');
     r.setProperty('--ov-bg-redeem', 'transparent');
     r.setProperty('--ov-pad-redeem', '4px 10px 4px 12px');
-    r.setProperty('--ov-bg-donation', 'transparent');
-    r.setProperty('--ov-pad-donation', '4px 10px 4px 12px');
     r.setProperty('--ov-bg-gift', 'transparent'); 
     r.setProperty('--ov-pad-gift', '4px 10px 4px 12px');
     r.setProperty('--ov-bg-streak', 'transparent'); 
@@ -472,69 +423,43 @@ function applyStyleVars() {
     r.setProperty('--ov-pad', '6px 10px');
     r.setProperty('--ov-bg-redeem', 'linear-gradient(100deg, rgba(145,71,255,0.24), rgba(46,230,168,0.10) 58%, ' + bgRgba + ')');
     r.setProperty('--ov-pad-redeem', '7px 12px 7px 14px');
-    r.setProperty('--ov-bg-donation', 'linear-gradient(100deg, rgba(255,180,84,0.20), rgba(46,230,168,0.08) 58%, ' + bgRgba + ')');
-    r.setProperty('--ov-pad-donation', '7px 12px 7px 14px');
     r.setProperty('--ov-bg-gift', 'linear-gradient(100deg, rgba(46,230,168,0.20), rgba(46,230,168,0.06) 58%, ' + bgRgba + ')'); 
     r.setProperty('--ov-pad-gift', '7px 12px 7px 14px');
     r.setProperty('--ov-bg-streak', 'linear-gradient(100deg, rgba(74,168,255,0.20), rgba(74,168,255,0.06) 58%, ' + bgRgba + ')'); 
     r.setProperty('--ov-pad-streak', '7px 12px 7px 14px');
   }
 }
-// 1. Мгновенно — URL/дефолты, чтобы оверлей не мерцал без стилей
-applyUrlOverrides();
-applyStyleVars();
-// 2. Асинхронно — серверный стиль как база, URL-переопределения поверх
-fetch('/api/style')
-  .then(r => (r.ok ? r.json() : null))
-  .catch(() => null)
-  .then(s => {
-    if (s) { applyStyleObject(s); applyUrlOverrides(); applyStyleVars(); }
-  });
 
-// ==================== Живой стиль из панели (postMessage) ====================
-function applyOverlayStyle(d) {
-  if (!d || d.type !== 'overlay-style') return;
-
-  if (typeof d.font === 'string') ovFont = d.font.trim() || null;
-  if (d.size != null) ovSize = parseInt(d.size, 10) || 0;
-  if (d.gap != null) { const g = parseInt(d.gap, 10); if (g >= 0) ovGap = g; }
-  if (typeof d.textColor === 'string' && d.textColor) ovTextColor = d.textColor;
-  if (typeof d.bgColor === 'string' && d.bgColor) ovBgColor = d.bgColor;
-  if (d.bgOpacity != null) { const o = parseInt(d.bgOpacity, 10); if (o >= 0 && o <= 100) ovBgOpacity = o; }
-  if (typeof d.showBadges === 'boolean') ovShowBadges = d.showBadges;
-  if (typeof d.highlightRoles === 'boolean') ovHighlightRoles = d.highlightRoles;
-  if (d.bg != null) ovBgOff = (d.bg === false || d.bg === 0 || d.bg === '0');
-
-  const prevHideOff = ovHideOff;
-  const prevLife = messageLifetime;
-  if (d.hide != null) ovHideOff = (d.hide === false || d.hide === 0 || d.hide === '0');
-  if (d.hideAfter != null) { const v = parseInt(d.hideAfter, 10); if (v > 0) messageLifetime = v; }
-  if (d.points != null) ovPoints = String(d.points).trim() || 'баллов';
-  if (d.emote != null) { const v = parseInt(d.emote, 10); if (v > 0) ovEmoteSize = v; }
+function applyOverlayStyle(s) {
+  if (s.font !== undefined) ovFont = s.font || null;
+  if (s.size !== undefined) ovSize = s.size;
+  if (s.gap !== undefined) ovGap = s.gap;
+  if (s.textColor !== undefined) ovTextColor = s.textColor;
+  if (s.bgColor !== undefined) ovBgColor = s.bgColor;
+  if (s.bgOpacity !== undefined) ovBgOpacity = s.bgOpacity;
+  if (s.showBadges !== undefined) ovShowBadges = s.showBadges;
+  if (s.highlightRoles !== undefined) ovHighlightRoles = s.highlightRoles;
+  if (s.bg !== undefined) ovBgOff = !s.bg;
+  if (s.hide !== undefined) ovHideOff = !s.hide;
+  if (s.points !== undefined) ovPoints = s.points || 'баллов';
+  if (s.emote !== undefined) ovEmoteSize = s.emote;
+  if (s.hideAfter !== undefined) messageLifetime = s.hideAfter;
+  applyUrlOverrides();
   applyStyleVars();
-
-  const timerChanged = (prevHideOff !== ovHideOff) || (prevLife !== messageLifetime);
-  if (timerChanged) {
-    const nodes = chatContainer.children;
-    for (let i = 0; i < nodes.length; i++) {
-      const el = nodes[i];
-      if (ovHideOff) {
-        clearTimeout(el._hideTimer); clearTimeout(el._removeTimer);
-        el._hideTimer = null;
-        el.classList.remove('hiding');
-        el.style.maxHeight = ''; el.style.overflow = '';
-      } else {
-        clearTimeout(el._hideTimer); el._hideTimer = null;
-        if (!el.classList.contains('hiding')) scheduleHide(el);
-      }
-    }
-  }
 }
 
+// Старт: 1) читаем стиль с сервера, 2) накладываем URL-оверрайды, 3) применяем
+fetch('/api/style')
+  .then(r => r.json())
+  .then(s => { applyStyleObject(s); applyUrlOverrides(); applyStyleVars(); })
+  .catch(() => { applyUrlOverrides(); applyStyleVars(); });
 
 window.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'overlay-style') applyOverlayStyle(e.data);
 });
 
-// сказали панели «я загрузился» — она пришлёт текущий стиль
-try { window.parent.postMessage({ type: 'overlay-ready' }, '*'); } catch (e) {}
+try {
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'overlay-ready' }, '*');
+  }
+} catch (e) {}

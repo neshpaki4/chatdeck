@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, clipboard, shell, nativeImage, dialog, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, clipboard, shell, nativeImage, dialog } = require('electron');
 const path = require('path');
 const { createChatServer } = require('./server');
 const { makeIcon } = require('./icon');
@@ -14,14 +14,12 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     dialog.showMessageBox({
       type: 'warning',
-      title: 'Twitch Chat OBS',
+      title: 'ChatDeck Legacy',
       message: 'Приложение уже запущено',
       detail:
-        'Работает другой экземпляр Twitch Chat OBS — одновременно может быть только один: ' +
-        'сервер чата держит порт и единственное подключение к Twitch.\n\n' +
-        'Скорее всего его окно свёрнуто в системный трей (закрытие окна не завершает программу). ' +
-        'Найдите фиолетовую иконку рядом с часами или посмотрите в панели задач — ' +
-        'попытка открыть приложение повторно заставит это окно развернуться и мигнуть.',
+        'Работает другой экземпляр ChatDeck Legacy — одновременно может быть запущен только один.\n\n' +
+        'Скорее всего окно свёрнуто в системный трей (закрытие окна не завершает программу). ' +
+        'Найдите фиолетовую иконку рядом с часами.',
       buttons: ['Понятно'],
       defaultId: 0,
       cancelId: 0,
@@ -32,7 +30,7 @@ if (!app.requestSingleInstanceLock()) {
     });
   });
 } else {
-  // --- первый экземпляр: отклик на чужую попытку запуска ---
+  // Первый экземпляр: отклик на чужую попытку запуска
   app.on('second-instance', () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
@@ -64,7 +62,8 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin' && quitting) app.quit();
   });
-    // Перед выходом даём серверу разорвать IRC и EventSub аккуратно
+
+  // Аккуратный выход
   let isShuttingDown = false;
   app.on('before-quit', (e) => {
     if (!isShuttingDown && chatServer) {
@@ -76,16 +75,14 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 function createMainWindow() {
-  const { width: aw, height: ah } = screen.getPrimaryDisplay().workAreaSize;
-  // Стартовое окно крупнее, но вписано в рабочую область экрана
-  const startW = Math.min(Math.max(1000, Math.floor(aw * 0.72)), aw);
-  const startH = Math.min(Math.max(700, Math.floor(ah * 0.8)), ah);
-
   mainWindow = new BrowserWindow({
-    width: startW,
-    height: startH,
-    minWidth: 880,
-    minHeight: 620,
+    width: 440,
+    height: 560,
+    minWidth: 400,
+    minHeight: 500,
+    maxWidth: 560,
+    maxHeight: 700,
+    title: 'ChatDeck Legacy',
     icon: nativeImage.createFromBuffer(makeIcon(128)),
     backgroundColor: '#0d0d11',
     autoHideMenuBar: true,
@@ -93,8 +90,7 @@ function createMainWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false,
-      webviewTag: true
+      nodeIntegration: false
     }
   });
 
@@ -113,7 +109,7 @@ function createMainWindow() {
 
 function createTray() {
   tray = new Tray(nativeImage.createFromBuffer(makeIcon(32)));
-  tray.setToolTip('Twitch Chat OBS');
+  tray.setToolTip('ChatDeck Legacy');
   tray.on('double-click', () => mainWindow.show());
   rebuildTray();
 }
@@ -146,14 +142,14 @@ function startStateLoop() {
   }, 1000);
 }
 
-
 function openSettings() {
   if (settingsWindow && !settingsWindow.isDestroyed()) { settingsWindow.focus(); return; }
   const st = chatServer.getState();
   settingsWindow = new BrowserWindow({
-    width: 520,
-    height: 820,
+    width: 460,
+    height: 520,
     resizable: false,
+    title: 'Настройки — ChatDeck Legacy',
     icon: nativeImage.createFromBuffer(makeIcon(128)),
     backgroundColor: '#0e0e10',
     autoHideMenuBar: true,

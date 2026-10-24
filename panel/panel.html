@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>ChatDeck — Twitch Chat для OBS</title>
+<title>ChatDeck Legacy — Twitch Chat для OBS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Rubik:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -30,210 +30,196 @@ body {
   height: 100vh; overflow: hidden; display: flex; flex-direction: column;
 }
 
-/* --- фон: свечения + точечная сетка --- */
+/* --- фон: свечения + сетка --- */
 .bg {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    radial-gradient(900px 520px at -8% -18%, rgba(145,71,255,0.14), transparent 62%),
-    radial-gradient(760px 520px at 108% 118%, rgba(46,230,168,0.07), transparent 60%);
+    radial-gradient(500px 300px at -10% -10%, rgba(145,71,255,0.15), transparent 70%),
+    radial-gradient(400px 300px at 110% 110%, rgba(46,230,168,0.08), transparent 70%);
 }
 .bg::after {
   content: ''; position: absolute; inset: 0;
   background-image: radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);
-  background-size: 22px 22px;
+  background-size: 20px 20px;
 }
 header, main, footer { position: relative; z-index: 1; }
 
 /* --- header --- */
 header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 28px; border-bottom: 1px solid var(--border);
-  background: rgba(13,13,17,0.85);
+  padding: 13px 18px; border-bottom: 1px solid var(--border);
+  background: rgba(13,13,17,0.92);
   -webkit-app-region: drag;
 }
-header button, header .status-pill { -webkit-app-region: no-drag; }
-.brand { display: flex; align-items: center; gap: 13px; }
-.brand-name { font-family: var(--display); font-weight: 900; font-size: 18px; letter-spacing: .02em; }
-.brand-name span { color: var(--accent); }
-.brand-sub { font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: .05em; }
-
-.status-pill {
-  display: flex; align-items: center; gap: 9px;
-  padding: 8px 15px; border-radius: 999px;
-  border: 1px solid var(--border); background: var(--surface);
-  font-size: 11px; font-weight: 700; letter-spacing: .08em;
-  color: var(--muted); transition: all .3s;
+header button { -webkit-app-region: no-drag; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-name {
+  font-family: var(--display); font-weight: 900; font-size: 15px; letter-spacing: .02em;
+  display: flex; align-items: center; gap: 7px;
 }
-.status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex-shrink: 0; }
-.status-pill.live { border-color: rgba(46,230,168,.45); color: var(--green); background: rgba(46,230,168,.08); }
-.status-pill.live .dot { background: var(--green); animation: pulseG 1.6s infinite; }
-.status-pill.connecting { border-color: rgba(255,180,84,.45); color: var(--amber); background: rgba(255,180,84,.07); }
-.status-pill.connecting .dot { background: var(--amber); animation: pulseA 1s infinite; }
-.status-pill.off { border-color: rgba(255,92,92,.4); color: var(--red); background: rgba(255,92,92,.06); }
-.status-pill.off .dot { background: var(--red); }
-@keyframes pulseG { 0% { box-shadow: 0 0 0 0 rgba(46,230,168,.5); } 70% { box-shadow: 0 0 0 7px rgba(46,230,168,0); } 100% { box-shadow: 0 0 0 0 rgba(46,230,168,0); } }
-@keyframes pulseA { 0% { box-shadow: 0 0 0 0 rgba(255,180,84,.5); } 70% { box-shadow: 0 0 0 6px rgba(255,180,84,0); } 100% { box-shadow: 0 0 0 0 rgba(255,180,84,0); } }
+.brand-name span { color: var(--accent); }
+.badge-legacy {
+  font-family: var(--body); font-size: 9px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.08em; padding: 2px 6px; border-radius: 999px;
+  background: var(--accent-soft); color: #cbb0ff; border: 1px solid rgba(145,71,255,0.3);
+}
+
+.header-actions { display: flex; gap: 6px; }
+.hbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid var(--border); color: var(--muted);
+  border-radius: 6px; width: 30px; height: 30px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .2s;
+}
+.hbtn:hover { border-color: var(--accent); color: #cbb0ff; background: var(--accent-soft); }
+.hbtn-danger:hover { border-color: var(--red); color: var(--red); background: rgba(255,92,92,.08); }
 
 /* --- layout --- */
 main {
-  flex: 1; overflow-y: auto; padding: 22px 28px;
-  display: grid; grid-template-columns: minmax(0,5fr) minmax(0,4fr); gap: 16px;
+  flex: 1; overflow-y: auto; padding: 14px 18px;
+  display: flex; flex-direction: column; gap: 12px;
 }
-main::-webkit-scrollbar { width: 8px; }
-main::-webkit-scrollbar-thumb { background: #2a2a33; border-radius: 4px; }
-.col-left { display: flex; flex-direction: column; gap: 14px; }
+main::-webkit-scrollbar { width: 6px; }
+main::-webkit-scrollbar-thumb { background: #26262f; border-radius: 3px; }
 
-.card {
+/* --- статус-полоска --- */
+.status-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-radius: 9px;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 10px; padding: 17px 19px; transition: border-color .25s;
 }
-.card:hover { border-color: var(--border-hover); }
-.card-label {
-  font-size: 10px; font-weight: 700; letter-spacing: .15em;
-  text-transform: uppercase; color: var(--muted); margin-bottom: 12px;
+.status-left { display: flex; align-items: center; gap: 9px; }
+.status-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--faint); flex-shrink: 0;
 }
+.status-bar.live .status-dot { background: var(--red); animation: pulseR 1.5s infinite; }
+.status-bar.online .status-dot { background: var(--green); }
+.status-bar.connecting .status-dot { background: var(--amber); animation: pulseA 1.2s infinite; }
+.status-bar.off .status-dot { background: var(--red); }
+.status-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.status-tag {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  padding: 3px 8px; border-radius: 5px; background: rgba(255,255,255,0.05); color: var(--muted);
+}
+.status-bar.live .status-tag { background: rgba(255,92,92,0.12); color: #ff8080; }
 
-/* --- URL --- */
-.url-box {
-  background: #0a0a0e; border: 1px solid var(--border);
-  border-radius: 8px; padding: 11px 13px;
-  transition: border-color .25s;
-}
-.url-box:hover { border-color: var(--border-hover); }
-.url-box code {
-  display: block; width: 100%;
-  font-family: var(--mono); font-size: 13px; line-height: 1.5;
-  color: var(--green); user-select: all;
-  word-break: break-all; overflow-wrap: anywhere;
-}
+@keyframes pulseR { 0% { box-shadow: 0 0 0 0 rgba(255,92,92,.5); } 70% { box-shadow: 0 0 0 6px rgba(255,92,92,0); } 100% { box-shadow: 0 0 0 0 rgba(255,92,92,0); } }
+@keyframes pulseA { 0% { box-shadow: 0 0 0 0 rgba(255,180,84,.5); } 70% { box-shadow: 0 0 0 6px rgba(255,180,84,0); } 100% { box-shadow: 0 0 0 0 rgba(255,180,84,0); } }
 
-/* ряд действий под адресом */
-.url-actions { display: flex; gap: 10px; margin-top: 10px; }
-.url-actions .btn {
-  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+/* --- статистика 4 плитки --- */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.stat {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 10px; text-align: center;
 }
-.btn .bi { width: 15px; height: 15px; flex-shrink: 0; }
-.url-box code { flex: 1; font-family: var(--mono); font-size: 15px; color: var(--green); user-select: all; }
-.url-hint { font-size: 11px; color: var(--faint); margin-top: 9px; }
-.url-hint b { color: var(--muted); font-weight: 600; }
-
-/* --- кнопки --- */
-.btn {
-  font-family: var(--body); font-weight: 600; font-size: 13px;
-  border-radius: 7px; padding: 10px 15px; border: 1px solid transparent;
-  cursor: pointer; transition: transform .12s, background .2s, border-color .2s, box-shadow .2s, color .2s;
+.stat-num {
+  font-family: var(--display); font-weight: 700; font-size: 13px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff;
 }
-.btn:active { transform: translateY(1px); }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover { background: #a063ff; box-shadow: 0 4px 20px rgba(145,71,255,.4); }
-.btn-primary.done { background: var(--green); color: #06281c; }
-.btn-ghost { background: transparent; color: var(--text); border-color: var(--border); }
-.btn-ghost:hover { border-color: var(--accent); color: #cbb0ff; background: var(--accent-soft); }
-
-/* --- статистика --- */
-.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 13px 16px; transition: border-color .25s; }
-.stat:hover { border-color: var(--border-hover); }
-.stat-num { font-family: var(--display); font-weight: 700; font-size: 21px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: .14em; color: var(--muted); margin-top: 5px; }
+.stat-label {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); margin-top: 3px;
+}
 .stat-num.bump { animation: bump .35s ease; }
 @keyframes bump { 40% { transform: scale(1.16); color: var(--green); } }
 
-/* --- действия --- */
-.actions { display: flex; gap: 10px; flex-wrap: wrap; }
-.actions .btn { flex: 1; min-width: 130px; }
-
-/* --- предпросмотр --- */
-.card.preview { display: flex; flex-direction: column; min-height: 0; }
-.preview-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
-.preview-meta { font-size: 10px; color: var(--faint); font-family: var(--mono); }
-.preview-frame {
-  flex: 1; min-height: 260px; position: relative;
-  border-radius: 8px; overflow: hidden; border: 1px solid var(--border);
-  background-color: #101015;
-  background-image:
-    linear-gradient(45deg, #17171d 25%, transparent 25%),
-    linear-gradient(-45deg, #17171d 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #17171d 75%),
-    linear-gradient(-45deg, transparent 75%, #17171d 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+/* --- OBS карточка ссылки --- */
+.card-obs {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 15px;
 }
-.preview-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.card-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+}
+.url-box {
+  background: #0a0a0e; border: 1px solid var(--border);
+  border-radius: 7px; padding: 9px 11px;
+}
+.url-box code {
+  display: block; width: 100%; font-family: var(--mono); font-size: 13px;
+  color: var(--green); user-select: all; word-break: break-all;
+}
+.url-actions { display: flex; gap: 8px; margin-top: 10px; }
+.btn {
+  font-family: var(--body); font-weight: 600; font-size: 12px;
+  border-radius: 6px; padding: 9px 12px; border: 1px solid transparent;
+  cursor: pointer; transition: all .2s; display: inline-flex;
+  align-items: center; justify-content: center; gap: 6px;
+}
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--accent); color: #fff; flex: 2; }
+.btn-primary:hover { background: #a063ff; box-shadow: 0 4px 14px rgba(145,71,255,.35); }
+.btn-primary.done { background: var(--green); color: #06281c; }
+.btn-ghost { background: transparent; color: var(--text); border-color: var(--border); flex: 1; }
+.btn-ghost:hover { border-color: var(--accent); color: #cbb0ff; background: var(--accent-soft); }
+.url-hint { font-size: 11px; color: var(--faint); margin-top: 8px; }
+
+/* --- триггер стилей --- */
+.trigger-card {
+  display: flex; align-items: center; gap: 11px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 9px; padding: 12px 14px; cursor: pointer; transition: all .2s;
+}
+.trigger-card:hover { border-color: var(--accent); background: rgba(22,22,28,0.95); }
+.trigger-ico {
+  width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center;
+  background: var(--accent-soft); border: 1px solid rgba(145,71,255,0.25); flex-shrink: 0;
+}
+.trigger-ico svg { width: 17px; height: 17px; }
+.trigger-txt { flex: 1; min-width: 0; }
+.trigger-title { font-size: 13px; font-weight: 600; color: #fff; display: block; }
+.trigger-sum {
+  font-size: 11px; color: var(--muted); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; display: block; margin-top: 1px;
+}
+.trigger-chev { color: var(--muted); flex-shrink: 0; }
 
 footer {
-  display: flex; justify-content: space-between; gap: 12px;
-  padding: 11px 28px; border-top: 1px solid var(--border);
-  font-size: 11px; color: var(--faint);
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 18px; border-top: 1px solid var(--border);
+  font-size: 10px; color: var(--faint);
 }
-/* --- конструктор стиля оверлея --- */
-.ctl-grid { display: flex; flex-direction: column; gap: 14px; }
-.ctl label {
+
+/* --- МОДАЛЬНОЕ ОКНО СТИЛЕЙ --- */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(6,6,9,.75); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .25s ease, visibility .25s ease;
+}
+.modal-backdrop.open { opacity: 1; visibility: visible; pointer-events: auto; }
+.modal-card {
+  width: 420px; max-width: 100%; max-height: 94vh; display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border-hover); border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.7); transform: scale(.97); opacity: 0;
+  transition: transform .25s ease, opacity .25s ease;
+}
+.modal-backdrop.open .modal-card { transform: none; opacity: 1; }
+.modal-head {
+  padding: 14px 18px 12px; background: rgba(22,22,28,.95);
+  border-bottom: 1px solid var(--border); border-radius: 12px 12px 0 0;
   display: flex; align-items: center; justify-content: space-between;
-  font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 7px;
 }
-.ctl label span { color: var(--accent); font-family: var(--mono); font-weight: 600; }
-
-.ctl-select {
-  width: 100%; padding: 9px 12px; border-radius: 7px;
-  border: 1px solid var(--border); background: #0a0a0e; color: var(--text);
-  font-family: var(--body); font-size: 13px; outline: none; cursor: pointer;
-  transition: border-color .2s;
-  appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
-  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+.modal-head h2 { font-size: 15px; font-weight: 700; }
+.modal-close {
+  width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center;
+}
+.modal-close:hover { border-color: var(--red); color: var(--red); }
+.modal-body { padding: 14px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 13px; }
+.modal-body::-webkit-scrollbar { width: 6px; }
+.modal-body::-webkit-scrollbar-thumb { background: #26262f; border-radius: 3px; }
+.modal-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; border-top: 1px solid var(--border); border-radius: 0 0 12px 12px;
 }
 
-.ctl-select:hover { border-color: var(--border-hover); }
-.ctl-select:focus { border-color: var(--accent); }
-
-
-
-.ctl-input {
-  width: 100%; padding: 9px 12px; border-radius: 7px;
-  border: 1px solid var(--border); background: #0a0a0e; color: var(--text);
-  font-family: var(--body); font-size: 13px; outline: none;
-  transition: border-color .2s;
-}
-.ctl-input::placeholder { color: var(--faint); }
-.ctl-input:hover { border-color: var(--border-hover); }
-.ctl-input:focus { border-color: var(--accent); }
-
-.ctl-range {
-  -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
-  border-radius: 999px; background: #2a2a33; outline: none; cursor: pointer;
-}
-.ctl-range::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none; width: 18px; height: 18px;
-  border-radius: 50%; background: var(--accent); border: 3px solid #16161c;
-  box-shadow: 0 0 0 1px var(--accent); transition: transform .12s, box-shadow .2s;
-}
-.ctl-range::-webkit-slider-thumb:hover { transform: scale(1.15); box-shadow: 0 0 0 1px var(--accent), 0 0 12px rgba(145,71,255,.6); }
-.ctl-range:active::-webkit-slider-thumb { transform: scale(1.05); }
-
-.ctl-row { flex-direction: row; align-items: center; justify-content: space-between; }
-.ctl-row label { margin: 0; }
-
-/* кастомный тумблер */
-.switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
-.ctl-row .switch { top: 8px; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.switch .track {
-  position: absolute; inset: 0; border-radius: 999px; cursor: pointer;
-  background: #2a2a33; border: 1px solid var(--border); transition: background .25s, border-color .25s;
-}
-.switch .track::before {
-  content: ''; position: absolute; height: 16px; width: 16px; left: 3px; top: 3px;
-  border-radius: 50%; background: var(--muted); transition: transform .25s cubic-bezier(.3,1.3,.5,1), background .25s;
-}
-.switch input:checked + .track { background: var(--accent-soft); border-color: var(--accent); }
-.switch input:checked + .track::before { transform: translateX(18px); background: var(--accent); }
-
-/* мини-превью строки на шахматной подложке */
+/* микро-превью в модалке */
 .style-preview-frame {
-  margin-top: 16px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border);
-  padding: 12px; min-height: 64px; display: flex; align-items: flex-end;
+  border-radius: 8px; border: 1px solid var(--border); padding: 10px;
   background-color: #101015;
   background-image:
     linear-gradient(45deg, #17171d 25%, transparent 25%),
@@ -244,162 +230,55 @@ footer {
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
 }
 .style-preview-line {
-  border-radius: 6px; color: #fff; line-height: 1.5;
-  word-break: normal; overflow-wrap: break-word;
-  transition: font-size .12s ease, background .2s, padding .2s;
+  border-radius: 6px; line-height: 1.5; word-break: normal;
   text-shadow: 0 1px 2px rgba(0,0,0,.9);
-  transition: font-size .12s ease, background .2s, padding .2s, border .2s, box-shadow .2s;
 }
+.style-preview-line .colon { margin: 0 4px 0 1px; color: #adadb8; }
 .style-preview-line.role-broadcaster {
   border-left: 3px solid #a970ff;
   box-shadow: 0 0 0 1px rgba(169,112,255,0.28), 0 4px 16px rgba(169,112,255,0.12);
 }
-/* --- карточка-триггер конструктора --- */
-.trigger-card {
-  display: flex; align-items: center; gap: 14px; width: 100%;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-  padding: 14px 16px; cursor: pointer; text-align: left; color: inherit;
-  font-family: var(--body); transition: border-color .25s, transform .15s, box-shadow .25s, background .25s;
-}
-.trigger-card:hover {
-  border-color: var(--accent); transform: translateY(-1px);
-  box-shadow: 0 8px 26px rgba(0,0,0,.35), 0 0 0 1px rgba(145,71,255,.18);
-  background: #1a1a22;
-}
-.trigger-card:active { transform: translateY(0); }
-.trigger-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.trigger-ico {
-  flex-shrink: 0; width: 40px; height: 40px; border-radius: 9px;
-  display: grid; place-items: center;
-  background: var(--accent-soft); border: 1px solid rgba(145,71,255,.3);
-  transition: transform .3s cubic-bezier(.3,1.4,.5,1);
-}
-.trigger-card:hover .trigger-ico { transform: rotate(-8deg) scale(1.06); }
-.trigger-ico svg { width: 20px; height: 20px; }
-.trigger-txt { flex: 1; min-width: 0; }
-.trigger-title { font-size: 13px; font-weight: 700; letter-spacing: .02em; }
-.trigger-sum {
-  margin-top: 3px; font-size: 11px; color: var(--muted);
-  font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.trigger-chev { flex-shrink: 0; color: var(--faint); transition: transform .25s, color .25s; }
-.trigger-card:hover .trigger-chev { transform: translateX(3px); color: var(--accent); }
 
-/* --- саммари-чип в модалке --- */
-.modal-chip {
-  display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap;
-  margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--muted);
+.ctl label {
+  display: flex; justify-content: space-between; font-size: 11px;
+  font-weight: 600; color: var(--muted); margin-bottom: 5px;
 }
-.modal-chip .seg {
-  padding: 3px 9px; border-radius: 999px; background: #0e0e13;
-  border: 1px solid var(--border); transition: color .2s, border-color .2s;
+.ctl label span { color: var(--accent); font-family: var(--mono); }
+.ctl-select, .ctl-input {
+  width: 100%; padding: 7px 10px; border-radius: 6px;
+  border: 1px solid var(--border); background: #0a0a0e; color: var(--text);
+  font-size: 12px; outline: none;
 }
-.modal-chip .seg.on { color: var(--green); border-color: rgba(46,230,168,.35); }
-.modal-chip .seg.off { color: var(--faint); }
-
-/* --- секции контролов --- */
-.ctl-section + .ctl-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
-.ctl-section h3 {
-  font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
-  color: var(--faint); margin-bottom: 13px;
+.ctl-range {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 5px;
+  border-radius: 999px; background: #26262f; outline: none; cursor: pointer;
 }
-.ctl.disabled { opacity: .38; pointer-events: none; filter: saturate(.4); }
-
-/* --- модальное окно --- */
-.modal-backdrop {
-  position: fixed; inset: 0; z-index: 1000;
-  display: flex; align-items: center; justify-content: center; padding: 24px;
-  background: rgba(6,6,9,.66); -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
-  opacity: 0; visibility: hidden; pointer-events: none;
-  transition: opacity .28s ease, visibility .28s ease;
+.ctl-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--accent); border: 2px solid #16161c;
 }
-.modal-backdrop.open { opacity: 1; visibility: visible; pointer-events: auto; }
-.modal-card {
-  width: 530px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column;
-  background: var(--surface); border: 1px solid var(--border-hover); border-radius: 14px;
-  box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(145,71,255,.08);
-  transform: translateY(16px) scale(.97); opacity: 0;
-  transition: transform .34s cubic-bezier(.2,.9,.25,1), opacity .3s ease;
+.ctl-row { display: flex; align-items: center; justify-content: space-between; }
+.switch { position: relative; width: 36px; height: 20px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .track {
+  position: absolute; inset: 0; border-radius: 999px; cursor: pointer;
+  background: #26262f; border: 1px solid var(--border); transition: .2s;
 }
-.modal-backdrop.open .modal-card { transform: none; opacity: 1; }
-.modal-head {
-  position: sticky; top: 0; z-index: 2; padding: 18px 22px 14px;
-  background: rgba(22,22,28,.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border); border-radius: 14px 14px 0 0;
+.switch .track::before {
+  content: ''; position: absolute; height: 14px; width: 14px; left: 2px; top: 2px;
+  border-radius: 50%; background: var(--muted); transition: .2s;
 }
-.modal-head-row { display: flex; align-items: center; gap: 12px; }
-.modal-head-ico {
-  width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; display: grid; place-items: center;
-  background: var(--accent-soft); border: 1px solid rgba(145,71,255,.3);
-}
-.modal-head-ico svg { width: 18px; height: 18px; }
-.modal-head h2 { font-family: var(--display); font-size: 16px; font-weight: 700; letter-spacing: .01em; }
-.modal-close {
-  margin-left: auto; width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
-  border: 1px solid var(--border); background: transparent; color: var(--muted);
-  cursor: pointer; display: grid; place-items: center; transition: all .2s;
-}
-.modal-close:hover { border-color: var(--red); color: var(--red); background: rgba(255,92,92,.08); transform: rotate(90deg); }
-.modal-body { padding: 20px 22px; overflow-y: auto; }
-.modal-body::-webkit-scrollbar { width: 8px; }
-.modal-body::-webkit-scrollbar-thumb { background: #2a2a33; border-radius: 4px; }
-.modal-foot {
-  display: flex; align-items: center; gap: 10px; padding: 14px 22px;
-  border-top: 1px solid var(--border); background: rgba(22,22,28,.6);
-  border-radius: 0 0 14px 14px;
-}
-.modal-foot .btn-reset { margin-right: auto; }
+.switch input:checked + .track { background: var(--accent-soft); border-color: var(--accent); }
+.switch input:checked + .track::before { transform: translateX(16px); background: var(--accent); }
 .ctl-color-row { display: flex; align-items: center; gap: 8px; }
 .ctl-color {
-  -webkit-appearance: none; border: 1px solid var(--border); border-radius: 7px;
-  width: 38px; height: 34px; padding: 2px; background: var(--bg); cursor: pointer; flex-shrink: 0;
+  -webkit-appearance: none; border: 1px solid var(--border); border-radius: 6px;
+  width: 32px; height: 28px; padding: 2px; background: #0a0a0e; cursor: pointer;
 }
 .ctl-color::-webkit-color-swatch-wrapper { padding: 0; }
-.ctl-color::-webkit-color-swatch { border: none; border-radius: 5px; }
-.ctl-hex { font-family: var(--mono); width: 88px; text-transform: uppercase; font-size: 12px; }
-
-/* превью redeem-строки в модалке */
-.style-preview-frame { gap: 8px; flex-direction: column; align-items: stretch; }
-.style-preview-line.redeem-message {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  border-left: 3px solid #b388ff;
-}
-.style-preview-line .redeem-ico { width: 20px; height: 20px; flex-shrink: 0; }
-.style-preview-line .redeem-text { min-width: 0; }
-.pv-reward { color: #d9c4ff; font-weight: 700; }
-.pv-cost { color: #ffd479; font-weight: 800; }
-.pv-verb { color: #cfcfd6; }
-
-#pvRedeemIco { flex-shrink: 0; display: inline-flex; }
-/* --- действия в шапке --- */
-.header-actions { display: flex; gap: 8px; -webkit-app-region: no-drag; }
-.hbtn {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: transparent; border: 1px solid var(--border); color: var(--muted);
-  border-radius: 7px; padding: 7px 12px; font-size: 12px; font-weight: 600;
-  font-family: var(--body); cursor: pointer; transition: all .2s;
-}
-.hbtn:hover { border-color: var(--accent); color: #cbb0ff; background: var(--accent-soft); }
-.hbtn-danger:hover { border-color: var(--red); color: var(--red); background: rgba(255,92,92,.08); }
-
-/* --- компактная URL-строка (не кричит) --- */
-.url-strip {
-  display: flex; align-items: center; gap: 10px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-  padding: 8px 12px; transition: border-color .25s;
-}
-.url-strip:hover { border-color: var(--border-hover); }
-.url-strip code {
-  flex: 1; min-width: 0; font-family: var(--mono); font-size: 11px; color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: all;
-}
-.url-strip-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.btn-sm { padding: 6px 10px; font-size: 12px; }
-.btn-sm .bi { width: 13px; height: 13px; }
-
-/* --- шапка предпросмотра со статусом --- */
-.preview-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
-.preview-head-right { display: flex; align-items: center; gap: 10px; }
+.ctl-color::-webkit-color-swatch { border: none; border-radius: 4px; }
+.ctl-hex { font-family: var(--mono); width: 75px; text-transform: uppercase; font-size: 11px; }
+.ctl.disabled { opacity: .4; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -407,7 +286,7 @@ footer {
 
 <header>
   <div class="brand">
-    <svg width="36" height="36" viewBox="0 0 32 32">
+    <svg width="26" height="26" viewBox="0 0 32 32">
       <rect x="1" y="1" width="30" height="30" rx="8" fill="#9147ff"/>
       <rect x="7" y="8" width="18" height="13" rx="4" fill="#fff"/>
       <path d="M11 21 L11 26 L16 21 Z" fill="#fff"/>
@@ -415,213 +294,187 @@ footer {
       <circle cx="16" cy="14.5" r="1.6" fill="#9147ff"/>
       <circle cx="20" cy="14.5" r="1.6" fill="#9147ff"/>
     </svg>
-    <div>
-      <div class="brand-name">CHAT<span>DECK</span></div>
-      <div class="brand-sub">Twitch-чат · 7TV · для OBS</div>
-    </div>
+    <div class="brand-name">CHAT<span>DECK</span> <span class="badge-legacy">Legacy</span></div>
   </div>
-    <div class="header-actions">
-    <button class="hbtn" id="settingsBtn" title="Настройки">⚙<span>Настройки</span></button>
-    <button class="hbtn" id="restartBtn" title="Перезапустить чат">↻<span>Перезапустить</span></button>
-    <button class="hbtn hbtn-danger" id="quitBtn" title="Выход">✕<span>Выход</span></button>
+  <div class="header-actions">
+    <button class="hbtn" id="settingsBtn" title="Настройки">⚙</button>
+    <button class="hbtn" id="restartBtn" title="Перезапустить чат">↻</button>
+    <button class="hbtn hbtn-danger" id="quitBtn" title="Выход">✕</button>
   </div>
-</header>
 </header>
 
 <main>
-  <div class="col-left">
+  <!-- Статус стрима -->
+  <div class="status-bar connecting" id="statusBar">
+    <div class="status-left">
+      <span class="status-dot"></span>
+      <span class="status-title" id="statusTitle">Подключение…</span>
+    </div>
+    <span class="status-tag" id="statusTag">Офлайн</span>
+  </div>
 
+  <!-- Статистика -->
   <div class="stats">
-      <div class="stat"><div class="stat-num" id="statChannel">—</div><div class="stat-label">Канал</div></div>
-      <div class="stat"><div class="stat-num" id="statPort">—</div><div class="stat-label">Порт</div></div>
-      <div class="stat"><div class="stat-num" id="statMsgs">0</div><div class="stat-label">Сообщений</div></div>
-      <div class="stat"><div class="stat-num" id="statUptime">Офлайн</div><div class="stat-label" id="statUptimeLabel">Стрим</div></div>
-    </div>
-  <div class="url-strip" title="URL для OBS">
-      <code id="obsUrl">http://localhost:—</code>
-      <div class="url-strip-actions">
-        <button class="btn btn-ghost btn-sm" id="openBtn">
-          <svg class="bi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5"/><path d="M19 5 10 14"/><path d="M19 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"/></svg>
-          <span class="bl">Открыть</span>
-        </button>
-        <button class="btn btn-primary btn-sm" id="copyBtn">
-          <svg class="bi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-          <span class="bl">Копировать</span>
-        </button>
-      </div>
-    </div>
-  <div class="trigger-card" id="openStyleBtn" tabindex="0" role="button" aria-label="Настроить стиль оверлея">
-      <span class="trigger-ico">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#cbb0ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3a9 9 0 1 0 0 18c1 0 1.6-.8 1.6-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.1 0-.9.8-1.6 1.7-1.6H16a5 5 0 0 0 5-5c0-3.9-4-7.4-9-7.4Z"/>
-          <circle cx="7.5" cy="11" r="1.1" fill="#cbb0ff" stroke="none"/>
-          <circle cx="10.5" cy="7.5" r="1.1" fill="#cbb0ff" stroke="none"/>
-          <circle cx="14.5" cy="7.5" r="1.1" fill="#cbb0ff" stroke="none"/>
-          <circle cx="17" cy="11" r="1.1" fill="#cbb0ff" stroke="none"/>
-        </svg>
-      </span>
-      <span class="trigger-txt">
-        <span class="trigger-title">Стиль оверлея</span>
-        <span class="trigger-sum" id="trigSummary">Segoe UI · 14px · плашка · 30с</span>
-      </span>
-      <span class="trigger-chev">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
-      </span>
-    </div>
+    <div class="stat"><div class="stat-num" id="statChannel">—</div><div class="stat-label">Канал</div></div>
+    <div class="stat"><div class="stat-num" id="statPort">6767</div><div class="stat-label">Порт</div></div>
+    <div class="stat"><div class="stat-num" id="statMsgs">0</div><div class="stat-label">Чат</div></div>
+    <div class="stat"><div class="stat-num" id="statUptime">Офлайн</div><div class="stat-label" id="statUptimeLabel">Стрим</div></div>
+  </div>
 
-</div>
-  <section class="card preview">
-    <div class="preview-head">
-      <span class="card-label" style="margin:0">Предпросмотр оверлея</span>
-      <div class="preview-head-right">
-        <div class="status-pill connecting" id="statusPill">
-          <span class="dot"></span><span id="statusText">Запуск…</span>
-        </div>
-        <span class="preview-meta" id="previewMeta">—</span>
-      </div>
+  <!-- OBS ссылка -->
+  <div class="card-obs">
+    <div class="card-label">Ссылка для OBS (Браузер)</div>
+    <div class="url-box">
+      <code id="obsUrl">http://localhost:6767</code>
     </div>
-    <div class="preview-frame">
-      <iframe id="preview"></iframe>
+    <div class="url-actions">
+      <button class="btn btn-primary" id="copyBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+        <span class="bl">Копировать ссылку</span>
+      </button>
+      <button class="btn btn-ghost" id="openBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5"/><path d="M19 5 10 14"/><path d="M19 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"/></svg>
+        <span>Открыть</span>
+      </button>
     </div>
-  </section>
+    <div class="url-hint">Добавьте в OBS как «Браузер» (рекомендуемый размер 450×700).</div>
+  </div>
+
+  <!-- Кнопка стиля оверлея -->
+  <div class="trigger-card" id="openStyleBtn" tabindex="0" role="button">
+    <span class="trigger-ico">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#cbb0ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3a9 9 0 1 0 0 18c1 0 1.6-.8 1.6-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.1 0-.9.8-1.6 1.7-1.6H16a5 5 0 0 0 5-5c0-3.9-4-7.4-9-7.4Z"/>
+        <circle cx="7.5" cy="11" r="1.1" fill="#cbb0ff" stroke="none"/>
+        <circle cx="10.5" cy="7.5" r="1.1" fill="#cbb0ff" stroke="none"/>
+        <circle cx="14.5" cy="7.5" r="1.1" fill="#cbb0ff" stroke="none"/>
+        <circle cx="17" cy="11" r="1.1" fill="#cbb0ff" stroke="none"/>
+      </svg>
+    </span>
+    <span class="trigger-txt">
+      <span class="trigger-title">Стиль чата</span>
+      <span class="trigger-sum" id="trigSummary">Segoe UI · 14px · плашка · 30с</span>
+    </span>
+    <span class="trigger-chev">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </span>
+  </div>
 </main>
 
 <footer>
-  <span>Закрытие окна сворачивает в трей — сервер продолжает работать</span>
-  <span>v1.3.4</span>
+  <span>ChatDeck Legacy</span>
+  <span>Сворачивается в трей</span>
 </footer>
 
+<!-- Модальное окно настроек стиля -->
 <div class="modal-backdrop" id="styleModal" aria-hidden="true">
-  <div class="modal-card" role="dialog" aria-modal="true" aria-label="Стиль оверлея">
+  <div class="modal-card" role="dialog" aria-modal="true">
     <div class="modal-head">
-      <div class="modal-head-row">
-        <span class="modal-head-ico">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#cbb0ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 3a9 9 0 1 0 0 18c1 0 1.6-.8 1.6-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.1 0-.9.8-1.6 1.7-1.6H16a5 5 0 0 0 5-5c0-3.9-4-7.4-9-7.4Z"/>
-            <circle cx="7.5" cy="11" r="1.1" fill="#cbb0ff" stroke="none"/>
-            <circle cx="10.5" cy="7.5" r="1.1" fill="#cbb0ff" stroke="none"/>
-            <circle cx="14.5" cy="7.5" r="1.1" fill="#cbb0ff" stroke="none"/>
-            <circle cx="17" cy="11" r="1.1" fill="#cbb0ff" stroke="none"/>
-          </svg>
-        </span>
-        <h2>Стиль оверлея</h2>
-        <button class="modal-close" id="modalClose" aria-label="Закрыть">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
-        </button>
-      </div>
-      <div class="modal-chip" id="modalSummary"></div>
+      <h2>Стиль оверлея</h2>
+      <button class="modal-close" id="modalClose">✕</button>
     </div>
-
+    
     <div class="modal-body">
-      <div class="ctl-section">
-        <h3>Типографика</h3>
-        <div class="ctl-grid">
-          <div class="ctl" style="grid-column: 1 / -1;">
-            <label for="ovFont">Шрифт (системный или любой установленный)</label>
-            <input type="text" id="ovFont" class="ctl-input" list="systemFontsList" placeholder="Segoe UI" autocomplete="off" spellcheck="false">
-            <datalist id="systemFontsList">
-              <option value="Segoe UI">
-              <option value="Arial">
-              <option value="Inter">
-              <option value="Montserrat">
-              <option value="Roboto">
-              <option value="Verdana">
-              <option value="Tahoma">
-              <option value="Trebuchet MS">
-              <option value="Georgia">
-              <option value="Times New Roman">
-              <option value="Consolas">
-              <option value="Impact">
-              <option value="Comic Sans MS">
-              <option value="system-ui">
-            </datalist>
-          </div>
-          <div class="ctl">
-            <label for="ovSize">Размер текста <span id="ovSizeVal">14px</span></label>
-            <input type="range" id="ovSize" class="ctl-range" min="10" max="32" step="1" value="14">
-          </div>
-          <div class="ctl">
-            <label for="ovEmote">Размер эмодзи <span id="ovEmoteVal">20px</span></label>
-            <input type="range" id="ovEmote" class="ctl-range" min="12" max="48" step="2" value="20">
-          </div>
-        </div>
-      </div>
-
-      <div class="ctl-section">
-        <h3>Цвета и подложка</h3>
-        <div class="ctl-grid">
-          <div class="ctl">
-            <label for="ovTextColor">Цвет текста</label>
-            <div class="ctl-color-row">
-              <input type="color" id="ovTextColor" class="ctl-color" value="#efeff1">
-              <input type="text" id="ovTextColorHex" class="ctl-input ctl-hex" value="#EFEFF1" maxlength="7">
-            </div>
-          </div>
-          <div class="ctl ctl-row">
-            <label for="ovBg">Плашка под сообщением</label>
-            <label class="switch"><input type="checkbox" id="ovBg" checked><span class="track"></span></label>
-          </div>
-          <div class="ctl" id="ovBgColorWrap">
-            <label for="ovBgColor">Цвет подложки</label>
-            <div class="ctl-color-row">
-              <input type="color" id="ovBgColor" class="ctl-color" value="#0f0f12">
-              <input type="text" id="ovBgColorHex" class="ctl-input ctl-hex" value="#0F0F12" maxlength="7">
-            </div>
-          </div>
-          <div class="ctl" id="ovBgOpacityWrap">
-            <label for="ovBgOpacity">Прозрачность плашки <span id="ovBgOpacityVal">82%</span></label>
-            <input type="range" id="ovBgOpacity" class="ctl-range" min="0" max="100" step="1" value="82">
-          </div>
-        </div>
-      </div>
-
-      <div class="ctl-section">
-        <h3>Интервалы и значки</h3>
-        <div class="ctl-grid">
-          <div class="ctl">
-            <label for="ovGap">Зазор между сообщениями <span id="ovGapVal">6px</span></label>
-            <input type="range" id="ovGap" class="ctl-range" min="0" max="24" step="1" value="6">
-          </div>
-          <div class="ctl ctl-row">
-            <label for="ovBadges">Отображать значки (Badges)</label>
-            <label class="switch"><input type="checkbox" id="ovBadges" checked><span class="track"></span></label>
-          </div>
-          <div class="ctl ctl-row" style="grid-column: 1 / -1;">
-            <label for="ovHighlightRoles">Выделять стримера, модераторов и VIP</label>
-            <label class="switch"><input type="checkbox" id="ovHighlightRoles" checked><span class="track"></span></label>
-          </div>
-        </div>
-      </div>
-
-      <div class="ctl-section">
-        <h3>Поведение</h3>
-        <div class="ctl-grid">
-          <div class="ctl ctl-row">
-            <label for="ovHide">Автоскрытие сообщений</label>
-            <label class="switch"><input type="checkbox" id="ovHide" checked><span class="track"></span></label>
-          </div>
-          <div class="ctl" id="ovHideWrap">
-            <label for="ovHideAfter">Исчезают через <span id="ovHideAfterVal">30с</span></label>
-            <input type="range" id="ovHideAfter" class="ctl-range" min="5" max="120" step="5" value="30">
-          </div>
-          <div class="ctl" style="grid-column: 1 / -1;">
-            <label for="ovPoints">Название баллов</label>
-            <input type="text" id="ovPoints" class="ctl-input" placeholder="баллов" autocomplete="off" spellcheck="false">
-          </div>
-        </div>
-      </div>
-
+      <!-- Микро-превью -->
       <div class="style-preview-frame">
-        <div id="ovPreview" class="style-preview-line"><span id="pvBadgesWrap" style="display:inline-flex;margin-right:6px;vertical-align:middle;"><svg width="18" height="18" viewBox="0 0 18 18"><rect width="18" height="18" rx="3" fill="#9147ff"/><text x="9" y="13" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold">★</text></svg></span><b style="color:#a78bff">neshpak</b><span style="color:#adadb8;margin:0 4px 0 1px;">: </span><span id="pvMsgText">привет чат</span> <img id="pvEmote" class="pv-emote" src="https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/2.0" alt=""> <span id="pvMsgEnd">как дела?</span></div>
-        <div id="ovPreviewRedeem" class="style-preview-line redeem-message">
-          <span id="pvRedeemIco"></span>
-          <span class="redeem-text"><b style="color:#a78bff">neshpak</b> <span class="pv-verb">использовал</span> <span class="pv-reward">Hydrate</span> <span class="pv-verb">за</span> <span class="pv-cost">500</span> <span id="pvPoints">баллов</span></span>
+        <div class="style-preview-line role-broadcaster" id="ovPreview">
+          <span class="badges-wrap" id="pvBadgesWrap" style="display:inline-flex;gap:3px;margin-right:5px;vertical-align:middle;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="#a970ff"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg>
+          </span>
+          <b class="username" style="color:#a970ff;font-weight:bold;">neshpak</b>
+          <span class="colon">:</span>
+          <span>Чат настроен!</span>
+          <img class="emote" id="pvEmote" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232ee6a8'><circle cx='12' cy='12' r='10'/><path d='M8 14s1.5 2 4 2 4-2 4-2' stroke='%2316161c' stroke-width='2'/><circle cx='9' cy='9' r='1.5' fill='%2316161c'/><circle cx='15' cy='9' r='1.5' fill='%2316161c'/></svg>" style="height:20px;vertical-align:middle;margin:0 2px;">
         </div>
+      </div>
+
+      <!-- Шрифт -->
+      <div class="ctl">
+        <label>Шрифт</label>
+        <select class="ctl-select" id="ovFont">
+          <option value="Segoe UI">Segoe UI (системный)</option>
+          <option value="Rubik">Rubik</option>
+          <option value="Unbounded">Unbounded</option>
+          <option value="JetBrains Mono">JetBrains Mono</option>
+          <option value="Inter">Inter</option>
+          <option value="Impact">Impact</option>
+          <option value="Arial">Arial</option>
+        </select>
+      </div>
+
+      <!-- Размер шрифта -->
+      <div class="ctl">
+        <label>Размер текста <span id="ovSizeVal">14px</span></label>
+        <input type="range" class="ctl-range" id="ovSize" min="10" max="32" value="14">
+      </div>
+
+      <!-- Отступ между сообщениями -->
+      <div class="ctl">
+        <label>Отступ между сообщениями <span id="ovGapVal">6px</span></label>
+        <input type="range" class="ctl-range" id="ovGap" min="0" max="24" value="6">
+      </div>
+
+      <!-- Цвет текста -->
+      <div class="ctl">
+        <label>Цвет текста</label>
+        <div class="ctl-color-row">
+          <input type="color" class="ctl-color" id="ovTextColor" value="#efeff1">
+          <input type="text" class="ctl-input ctl-hex" id="ovTextColorHex" value="#EFEFF1" maxlength="7">
+        </div>
+      </div>
+
+      <!-- Плашка фона -->
+      <div class="ctl ctl-row">
+        <label>Фоновая плашка</label>
+        <label class="switch"><input type="checkbox" id="ovBg" checked><span class="track"></span></label>
+      </div>
+
+      <!-- Цвет фона и прозрачность -->
+      <div class="ctl" id="ovBgColorWrap">
+        <label>Цвет плашки</label>
+        <div class="ctl-color-row">
+          <input type="color" class="ctl-color" id="ovBgColor" value="#0f0f12">
+          <input type="text" class="ctl-input ctl-hex" id="ovBgColorHex" value="#0F0F12" maxlength="7">
+        </div>
+      </div>
+
+      <div class="ctl" id="ovBgOpacityWrap">
+        <label>Непрозрачность <span id="ovBgOpacityVal">82%</span></label>
+        <input type="range" class="ctl-range" id="ovBgOpacity" min="10" max="100" value="82">
+      </div>
+
+      <!-- Значки -->
+      <div class="ctl ctl-row">
+        <label>Значки (модер, саб, VIP)</label>
+        <label class="switch"><input type="checkbox" id="ovBadges" checked><span class="track"></span></label>
+      </div>
+
+      <!-- Выделение ролей -->
+      <div class="ctl ctl-row">
+        <label>Выделение ролей (полоска слева)</label>
+        <label class="switch"><input type="checkbox" id="ovHighlightRoles" checked><span class="track"></span></label>
+      </div>
+
+      <!-- Исчезновение -->
+      <div class="ctl ctl-row">
+        <label>Скрывать старые сообщения</label>
+        <label class="switch"><input type="checkbox" id="ovHide" checked><span class="track"></span></label>
+      </div>
+
+      <div class="ctl" id="ovHideWrap">
+        <label>Время показа <span id="ovHideAfterVal">30с</span></label>
+        <input type="range" class="ctl-range" id="ovHideAfter" min="5" max="120" value="30">
+      </div>
+
+      <!-- Размер эмодзи -->
+      <div class="ctl">
+        <label>Размер смайликов <span id="ovEmoteVal">20px</span></label>
+        <input type="range" class="ctl-range" id="ovEmote" min="14" max="44" value="20">
       </div>
     </div>
 
     <div class="modal-foot">
-      <button class="btn btn-ghost btn-reset" id="modalReset">Сбросить</button>
+      <button class="btn btn-ghost" id="modalReset">Сбросить по умолчанию</button>
       <button class="btn btn-primary" id="modalDone">Готово</button>
     </div>
   </div>
@@ -629,10 +482,17 @@ footer {
 
 <script>
 const $ = id => document.getElementById(id);
+
+let currentObsUrl = 'http://localhost:6767';
 let lastMsgs = 0;
-// ==================== конструктор стиля оверлея ====================
-let currentObsUrl = '';
-const DEFAULTS = { font: 'Segoe UI', size: 14, gap: 6, textColor: '#efeff1', bgColor: '#0f0f12', bgOpacity: 82, showBadges: true, highlightRoles: true, bg: true, hide: true, hideAfter: 30, points: '', emote: 20 };
+
+const DEFAULTS = {
+  font: 'Segoe UI', size: 14, gap: 6,
+  textColor: '#efeff1', bgColor: '#0f0f12', bgOpacity: 82,
+  showBadges: true, highlightRoles: true, bg: true,
+  hide: true, hideAfter: 30, emote: 20
+};
+
 const $ovFont = $('ovFont');
 const $ovSize = $('ovSize');
 const $ovSizeVal = $('ovSizeVal');
@@ -645,124 +505,36 @@ const $ovBgColor = $('ovBgColor');
 const $ovBgColorHex = $('ovBgColorHex');
 const $ovBgOpacity = $('ovBgOpacity');
 const $ovBgOpacityVal = $('ovBgOpacityVal');
-const $ovBgColorWrap = $('ovBgColorWrap');
-const $ovBgOpacityWrap = $('ovBgOpacityWrap');
 const $ovBadges = $('ovBadges');
 const $ovHighlightRoles = $('ovHighlightRoles');
-const $pvBadgesWrap = $('pvBadgesWrap');
 const $ovHide = $('ovHide');
 const $ovHideAfter = $('ovHideAfter');
 const $ovHideAfterVal = $('ovHideAfterVal');
-const $ovHideWrap = $('ovHideWrap');
-const $ovPreview = $('ovPreview');
-const $ovPoints = $('ovPoints');
-const $pvPoints = $('pvPoints');
 const $ovEmote = $('ovEmote');
 const $ovEmoteVal = $('ovEmoteVal');
-const $trigSummary = $('trigSummary');
-const $modalSummary = $('modalSummary');
+const $ovPreview = $('ovPreview');
+const $pvBadgesWrap = $('pvBadgesWrap');
+const $pvEmote = $('pvEmote');
 const $styleModal = $('styleModal');
+const $trigSummary = $('trigSummary');
 
 function hexToRgba(hex, alpha) {
-  if (!hex || typeof hex !== 'string' || hex[0] !== '#') return `rgba(15,15,18,${alpha})`;
-  let c = hex.slice(1);
+  let c = (hex || '#0f0f12').replace(/^#/, '');
   if (c.length === 3) c = c.split('').map(x => x + x).join('');
   const num = parseInt(c, 16);
   if (isNaN(num)) return `rgba(15,15,18,${alpha})`;
-  const r = (num >> 16) & 255;
-  const g = (num >> 8) & 255;
-  const b = num & 255;
-  return `rgba(${r},${g},${b},${alpha})`;
+  return `rgba(${(num >> 16) & 255},${(num >> 8) & 255},${num & 255},${alpha})`;
 }
-// Иконка превью вставляется из JS-строки, чтобы угловые скобки SVG
-// не терялись при копировании HTML (именно из-за этого в превью лез текст path d="...").
-const PREVIEW_ICON =
-  '<svg class="redeem-ico" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-  '<path d="M12 2 L20 9 L12 22 L4 9 Z" fill="#7c3aed"/>' +
-  '<path d="M12 2 L20 9 L12 12 Z" fill="#a78bfa"/>' +
-  '<path d="M12 2 L4 9 L12 12 Z" fill="#c4b5fd"/>' +
-  '<path d="M12 12 L20 9 L12 22 Z" fill="#6d28d9"/>' +
-  '<path d="M12 12 L4 9 L12 22 Z" fill="#8b5cf6"/>' +
-  '<circle cx="9.4" cy="8" r="1.3" fill="#fff" opacity="0.85"/>' +
-  '</svg>';
-const _pvIco = $('pvRedeemIco');
-if (_pvIco) _pvIco.innerHTML = PREVIEW_ICON;
-
-
-
-// Стиль живёт на сервере. Панель в Electron открыта через file://,
-// поэтому относительный fetch не работает — бьём абсолютным URL
-// и только когда state уже принёс адрес сервера.
-let styleLoadedOnce = false;
-function loadStyleFromServer() {
-  if (!currentObsUrl || styleLoadedOnce) return;
-  fetch(currentObsUrl + '/api/style')
-    .then(r => (r.ok ? r.json() : null))
-    .then(s => {
-      if (!s) return;
-      styleLoadedOnce = true;
-      if (s.font) $ovFont.value = s.font;
-      if (s.size > 0) $ovSize.value = s.size;
-      if (s.gap != null) $ovGap.value = s.gap;
-      if (s.textColor) { $ovTextColor.value = s.textColor; $ovTextColorHex.value = s.textColor.toUpperCase(); }
-      if (s.bgColor) { $ovBgColor.value = s.bgColor; $ovBgColorHex.value = s.bgColor.toUpperCase(); }
-      if (s.bgOpacity != null) $ovBgOpacity.value = s.bgOpacity;
-      if (typeof s.showBadges === 'boolean') $ovBadges.checked = s.showBadges;
-      if (typeof s.highlightRoles === 'boolean') $ovHighlightRoles.checked = s.highlightRoles;
-      if (typeof s.bg === 'boolean') $ovBg.checked = s.bg;
-      if (typeof s.hide === 'boolean') $ovHide.checked = s.hide;
-      if (s.hideAfter > 0) $ovHideAfter.value = Math.round(s.hideAfter / 1000);
-      if (typeof s.points === 'string') $ovPoints.value = s.points;
-      if (s.emote > 0) $ovEmote.value = s.emote;
-      refreshPreview();
-      refreshOverlayUrl();
-      refreshSummary();
-      postStyleToPreview();
-    })
-    .catch(() => {});
-}
-// ждём, пока state принесёт obsUrl, и только потом тянем стиль
-(function waitStyleUrl() {
-  if (currentObsUrl) loadStyleFromServer();
-  else setTimeout(waitStyleUrl, 300);
-})();
-
-function summaryText() {
-  const bg = $ovBg.checked ? 'плашка' : 'без плашки';
-  const timer = $ovHide.checked ? ($ovHideAfter.value + 'с') : 'без таймера';
-  const fontName = ($ovFont.value || 'Segoe UI').trim();
-  return fontName + ' · ' + $ovSize.value + 'px · зазор ' + $ovGap.value + 'px · ' + bg + ' · ' + timer;
-}
-
-function summaryChips() {
-  const seg = (txt, on) => `<span class="seg ${on ? 'on' : 'off'}">${txt}</span>`;
-  const fontName = ($ovFont.value || 'Segoe UI').trim();
-  return seg(fontName, true) +
-         seg($ovSize.value + 'px', true) +
-         seg('зазор ' + $ovGap.value + 'px', true) +
-         seg($ovBg.checked ? 'плашка ' + $ovBgOpacity.value + '%' : 'без плашки', $ovBg.checked) +
-         seg($ovBadges.checked ? 'бейджи вкл' : 'бейджи выкл', $ovBadges.checked) +
-         seg($ovHighlightRoles.checked ? 'роли вкл' : 'роли выкл', $ovHighlightRoles.checked) +
-         seg($ovHide.checked ? ('таймер ' + $ovHideAfter.value + 'с') : 'таймер выкл', $ovHide.checked);
-}
-
-function styledUrl() {
-  if (!currentObsUrl) return 'http://localhost:—';
-  return currentObsUrl + '/';
-}
-
-function refreshOverlayUrl() { $('obsUrl').textContent = styledUrl(); }
 
 function refreshPreview() {
   const fontVal = ($ovFont.value || '').trim() || 'Segoe UI';
-  const fam = '"' + fontVal + '", "Segoe UI", Arial, sans-serif';
   const sz = $ovSize.value + 'px';
   const gap = $ovGap.value + 'px';
   const textColor = $ovTextColor.value || '#efeff1';
   const opacity = parseInt($ovBgOpacity.value, 10) / 100;
   const bgRgba = hexToRgba($ovBgColor.value || '#0f0f12', opacity);
 
-  $ovPreview.style.fontFamily = fam;
+  $ovPreview.style.fontFamily = `"${fontVal}", "Segoe UI", Arial, sans-serif`;
   $ovPreview.style.fontSize = sz;
   $ovPreview.style.color = textColor;
   $ovPreview.style.marginBottom = gap;
@@ -770,8 +542,8 @@ function refreshPreview() {
   if ($pvBadgesWrap) $pvBadgesWrap.style.display = $ovBadges.checked ? 'inline-flex' : 'none';
   if ($ovHighlightRoles) $ovPreview.classList.toggle('role-broadcaster', $ovHighlightRoles.checked);
 
-  $ovBgColorWrap.classList.toggle('disabled', !$ovBg.checked);
-  $ovBgOpacityWrap.classList.toggle('disabled', !$ovBg.checked);
+  $('ovBgColorWrap').classList.toggle('disabled', !$ovBg.checked);
+  $('ovBgOpacityWrap').classList.toggle('disabled', !$ovBg.checked);
 
   if ($ovBg.checked) {
     $ovPreview.style.background = bgRgba;
@@ -781,35 +553,15 @@ function refreshPreview() {
     $ovPreview.style.padding = '2px 0';
   }
 
-  const $pvR = $('ovPreviewRedeem');
-  if ($pvR) {
-    $pvR.style.fontFamily = fam;
-    $pvR.style.fontSize = sz;
-    $pvR.style.color = textColor;
-    if ($ovBg.checked) {
-      $pvR.style.background = 'linear-gradient(100deg, rgba(145,71,255,0.24), rgba(46,230,168,0.10) 58%, ' + bgRgba + ')';
-      $pvR.style.padding = '7px 12px 7px 14px';
-    } else {
-      $pvR.style.background = 'transparent';
-      $pvR.style.padding = '4px 10px 4px 12px';
-    }
-  }
-
   $ovSizeVal.textContent = sz;
   $ovGapVal.textContent = gap;
   $ovBgOpacityVal.textContent = $ovBgOpacity.value + '%';
   $ovHideAfterVal.textContent = $ovHideAfter.value + 'с';
-  if ($pvPoints) $pvPoints.textContent = $ovPoints.value.trim() || 'баллов';
-  $ovHideWrap.classList.toggle('disabled', !$ovHide.checked);
+  $('ovHideWrap').classList.toggle('disabled', !$ovHide.checked);
   $ovEmoteVal.textContent = $ovEmote.value + 'px';
-  const $pvE = $('pvEmote');
-  if ($pvE) $pvE.style.height = $ovEmote.value + 'px';
-}
+  if ($pvEmote) $pvEmote.style.height = $ovEmote.value + 'px';
 
-function refreshSummary() {
-  const t = summaryText();
-  $trigSummary.textContent = t;
-  $modalSummary.innerHTML = summaryChips();
+  $trigSummary.textContent = `${fontVal} · ${sz} · ${$ovBg.checked ? 'плашка' : 'без фона'} · ${$ovHide.checked ? $ovHideAfter.value + 'с' : 'без исчезн.'}`;
 }
 
 let styleSaveTimer = null;
@@ -828,66 +580,25 @@ function saveStylePrefs() {
         bgColor: $ovBgColor.value,
         bgOpacity: parseInt($ovBgOpacity.value, 10),
         showBadges: $ovBadges.checked,
-    highlightRoles: $ovHighlightRoles.checked,
         highlightRoles: $ovHighlightRoles.checked,
         bg: $ovBg.checked,
         hide: $ovHide.checked,
         hideAfter: parseInt($ovHideAfter.value, 10) * 1000,
-        points: $ovPoints.value.trim(),
         emote: parseInt($ovEmote.value, 10)
       })
     }).catch(() => {});
-  }, 400); // дебаунс — не пишем на каждый тик ползунка
+  }, 350);
 }
 
 function onStyleChange() {
   refreshPreview();
-  refreshOverlayUrl();
-  refreshSummary();
   saveStylePrefs();
-  postStyleToPreview();
 }
 
-// шлём стиль прямо в живой iframe — применяется мгновенно, без перезагрузки
-function postStyleToPreview() {
-  const f = $('preview');
-  if (!f || !f.contentWindow) return;
-  let origin = '*';
-  try { origin = new URL(currentObsUrl).origin; } catch (e) {}
-  f.contentWindow.postMessage({
-    type: 'overlay-style',
-    font: $ovFont.value.trim() || 'Segoe UI',
-    size: parseInt($ovSize.value, 10),
-    gap: parseInt($ovGap.value, 10),
-    textColor: $ovTextColor.value,
-    bgColor: $ovBgColor.value,
-    bgOpacity: parseInt($ovBgOpacity.value, 10),
-    showBadges: $ovBadges.checked,
-    highlightRoles: $ovHighlightRoles.checked,
-    bg: $ovBg.checked,
-    hide: $ovHide.checked,
-    hideAfter: parseInt($ovHideAfter.value, 10) * 1000,
-    points: $ovPoints.value.trim() || 'баллов',
-    emote: parseInt($ovEmote.value, 10),
-  }, origin);
-}
-
-// iframe сообщил, что загрузился — отдаём ему текущий стиль
-window.addEventListener('message', (e) => {
-  const f = $('preview');
-  if (f && e.source === f.contentWindow && e.data && e.data.type === 'overlay-ready') {
-    postStyleToPreview();
-  }
-});
-
-// модалка: открытие / закрытие
 function openStyleModal() { $styleModal.classList.add('open'); $styleModal.setAttribute('aria-hidden', 'false'); }
 function closeStyleModal() { $styleModal.classList.remove('open'); $styleModal.setAttribute('aria-hidden', 'true'); }
 
 $('openStyleBtn').addEventListener('click', openStyleModal);
-$('openStyleBtn').addEventListener('keydown', e => {
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openStyleModal(); }
-});
 $('modalClose').addEventListener('click', closeStyleModal);
 $('modalDone').addEventListener('click', closeStyleModal);
 $('modalReset').addEventListener('click', () => {
@@ -904,71 +615,88 @@ $('modalReset').addEventListener('click', () => {
   $ovBg.checked = DEFAULTS.bg;
   $ovHide.checked = DEFAULTS.hide;
   $ovHideAfter.value = DEFAULTS.hideAfter;
-  $ovPoints.value = DEFAULTS.points;
   $ovEmote.value = DEFAULTS.emote;
   onStyleChange();
 });
+
 $styleModal.addEventListener('mousedown', e => { if (e.target === $styleModal) closeStyleModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $styleModal.classList.contains('open')) closeStyleModal(); });
 
 $ovFont.addEventListener('input', onStyleChange);
 $ovSize.addEventListener('input', onStyleChange);
 $ovGap.addEventListener('input', onStyleChange);
-
-$ovTextColor.addEventListener('input', () => {
-  $ovTextColorHex.value = $ovTextColor.value.toUpperCase();
-  onStyleChange();
-});
+$ovTextColor.addEventListener('input', () => { $ovTextColorHex.value = $ovTextColor.value.toUpperCase(); onStyleChange(); });
 $ovTextColorHex.addEventListener('input', () => {
   const v = $ovTextColorHex.value.trim();
-  if (/^#[0-9a-fA-F]{6}$/.test(v)) {
-    $ovTextColor.value = v;
-    onStyleChange();
-  }
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) { $ovTextColor.value = v; onStyleChange(); }
 });
-
-$ovBgColor.addEventListener('input', () => {
-  $ovBgColorHex.value = $ovBgColor.value.toUpperCase();
-  onStyleChange();
-});
+$ovBgColor.addEventListener('input', () => { $ovBgColorHex.value = $ovBgColor.value.toUpperCase(); onStyleChange(); });
 $ovBgColorHex.addEventListener('input', () => {
   const v = $ovBgColorHex.value.trim();
-  if (/^#[0-9a-fA-F]{6}$/.test(v)) {
-    $ovBgColor.value = v;
-    onStyleChange();
-  }
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) { $ovBgColor.value = v; onStyleChange(); }
 });
-
 $ovBgOpacity.addEventListener('input', onStyleChange);
 $ovBadges.addEventListener('change', onStyleChange);
 $ovHighlightRoles.addEventListener('change', onStyleChange);
 $ovBg.addEventListener('change', onStyleChange);
 $ovHide.addEventListener('change', onStyleChange);
 $ovHideAfter.addEventListener('input', onStyleChange);
-$ovPoints.addEventListener('input', onStyleChange);
 $ovEmote.addEventListener('input', onStyleChange);
 
-refreshPreview();
-refreshOverlayUrl();
-refreshSummary();
+// Загрузка начальных настроек стиля с сервера
+function loadInitialStyle() {
+  fetch((currentObsUrl || '') + '/api/style').then(r => r.json()).then(s => {
+    if (s.font) $ovFont.value = s.font;
+    if (s.size) $ovSize.value = s.size;
+    if (s.gap != null) $ovGap.value = s.gap;
+    if (s.textColor) { $ovTextColor.value = s.textColor; $ovTextColorHex.value = s.textColor.toUpperCase(); }
+    if (s.bgColor) { $ovBgColor.value = s.bgColor; $ovBgColorHex.value = s.bgColor.toUpperCase(); }
+    if (s.bgOpacity != null) $ovBgOpacity.value = s.bgOpacity;
+    if (s.showBadges != null) $ovBadges.checked = s.showBadges;
+    if (s.highlightRoles != null) $ovHighlightRoles.checked = s.highlightRoles;
+    if (s.bg != null) $ovBg.checked = s.bg;
+    if (s.hide != null) $ovHide.checked = s.hide;
+    if (s.hideAfter) $ovHideAfter.value = Math.round(s.hideAfter / 1000);
+    if (s.emote) $ovEmote.value = s.emote;
+    refreshPreview();
+  }).catch(() => refreshPreview());
+}
 
+loadInitialStyle();
+
+// Интеграция с Electron
 window.api.onState(update);
 window.api.getState().then(update);
 
 function update(st) {
-  const pill = $('statusPill');
-  const cls = st.chatConnected ? 'live' : (st.channel ? 'connecting' : 'off');
-  pill.className = 'status-pill ' + cls;
-  const chLabel = st.channel ? ('#' + st.channel) : '';
-  $('statusText').textContent = st.chatConnected
-    ? (st.streamLive ? `В эфире · ${chLabel}` : `Подключено · ${chLabel}`)
-    : (st.error ? st.error.slice(0, 40) : (st.channel ? 'Подключение…' : 'Канал не настроен'));
+  currentObsUrl = st.obsUrl || 'http://localhost:6767';
+  $('obsUrl').textContent = currentObsUrl;
+  $('statChannel').textContent = st.channel ? '#' + st.channel : '—';
+  $('statPort').textContent = st.port || '6767';
 
-  currentObsUrl = st.obsUrl || '';
-  refreshOverlayUrl();
-  $('statChannel').textContent = st.channel || '—';
-  $('statPort').textContent = st.port || '—';
-  $('previewMeta').textContent = (st.emotes || 0) + ' emotes · ' + (st.badges || 0) + ' badges';
+  const bar = $('statusBar');
+  const title = $('statusTitle');
+  const tag = $('statusTag');
+
+  if (st.chatConnected) {
+    if (st.streamLive) {
+      bar.className = 'status-bar live';
+      title.textContent = `В эфире: #${st.channel}`;
+      tag.textContent = (st.streamViewers > 0) ? `👁 ${st.streamViewers}` : 'В эфире';
+    } else {
+      bar.className = 'status-bar online';
+      title.textContent = `Чат: #${st.channel}`;
+      tag.textContent = 'Офлайн';
+    }
+  } else if (st.channel) {
+    bar.className = 'status-bar connecting';
+    title.textContent = `Подключение: #${st.channel}…`;
+    tag.textContent = 'Подключение';
+  } else {
+    bar.className = 'status-bar off';
+    title.textContent = 'Канал не настроен';
+    tag.textContent = 'Настроить';
+  }
 
   const msgsEl = $('statMsgs');
   if (st.messages !== lastMsgs) {
@@ -981,20 +709,12 @@ function update(st) {
   const uptimeLabel = $('statUptimeLabel');
   if (st.streamLive && st.streamStartedAt) {
     uptimeEl.textContent = fmtUptime(Date.now() - st.streamStartedAt);
-    uptimeEl.style.color = '#ff5b5b';
-    if (uptimeLabel) {
-      uptimeLabel.textContent = (st.streamViewers > 0) ? `В эфире (${st.streamViewers})` : 'В эфире';
-    }
+    uptimeEl.style.color = '#ff5c5c';
+    if (uptimeLabel) uptimeLabel.textContent = (st.streamViewers > 0) ? `Зрители (${st.streamViewers})` : 'Стрим';
   } else {
     uptimeEl.textContent = 'Офлайн';
     uptimeEl.style.color = '';
     if (uptimeLabel) uptimeLabel.textContent = 'Стрим';
-  }
-
-  const pv = $('preview');
-  if (pv.dataset.base !== st.obsUrl) {
-    pv.dataset.base = st.obsUrl;
-    pv.src = styledUrl();
   }
 }
 
@@ -1008,8 +728,8 @@ $('copyBtn').addEventListener('click', async () => {
   await window.api.copyText($('obsUrl').textContent);
   const b = $('copyBtn');
   const lbl = b.querySelector('.bl');
-  b.classList.add('done'); lbl.textContent = 'Скопировано';
-  setTimeout(() => { b.classList.remove('done'); lbl.textContent = 'Копировать'; }, 1600);
+  b.classList.add('done'); lbl.textContent = 'Скопировано!';
+  setTimeout(() => { b.classList.remove('done'); lbl.textContent = 'Копировать ссылку'; }, 1600);
 });
 
 $('openBtn').addEventListener('click', () => window.api.openUrl($('obsUrl').textContent));
