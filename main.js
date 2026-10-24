@@ -156,6 +156,7 @@ function openSettings() {
     resizable: false,
     icon: nativeImage.createFromBuffer(makeIcon(128)),
     backgroundColor: '#0e0e10',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

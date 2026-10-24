@@ -217,6 +217,19 @@
     padding: var(--ov-pad-streak);
     box-shadow: 0 0 0 1px rgba(74,168,255,.28), 0 6px 24px rgba(74,168,255,.14);
   }
+  /* --- Выделение ролей: стример / модеры / VIP --- */
+  #chat-container.highlight-roles .chat-message.role-broadcaster:not(.redeem-message):not(.event-message):not(.donation-message) {
+    border-left: 3px solid #a970ff;
+    box-shadow: 0 0 0 1px rgba(169,112,255,0.28), 0 4px 16px rgba(169,112,255,0.12);
+  }
+  #chat-container.highlight-roles .chat-message.role-moderator:not(.redeem-message):not(.event-message):not(.donation-message) {
+    border-left: 3px solid #00f593;
+    box-shadow: 0 0 0 1px rgba(0,245,147,0.25), 0 4px 16px rgba(0,245,147,0.10);
+  }
+  #chat-container.highlight-roles .chat-message.role-vip:not(.redeem-message):not(.event-message):not(.donation-message) {
+    border-left: 3px solid #e05bff;
+    box-shadow: 0 0 0 1px rgba(224,91,255,0.25), 0 4px 16px rgba(224,91,255,0.10);
+  }
 </style>
 </head>
 <body>

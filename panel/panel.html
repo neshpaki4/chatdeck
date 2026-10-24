@@ -248,6 +248,11 @@ footer {
   word-break: normal; overflow-wrap: break-word;
   transition: font-size .12s ease, background .2s, padding .2s;
   text-shadow: 0 1px 2px rgba(0,0,0,.9);
+  transition: font-size .12s ease, background .2s, padding .2s, border .2s, box-shadow .2s;
+}
+.style-preview-line.role-broadcaster {
+  border-left: 3px solid #a970ff;
+  box-shadow: 0 0 0 1px rgba(169,112,255,0.28), 0 4px 16px rgba(169,112,255,0.12);
 }
 /* --- карточка-триггер конструктора --- */
 .trigger-card {
@@ -483,7 +488,7 @@ footer {
 
 <footer>
   <span>Закрытие окна сворачивает в трей — сервер продолжает работать</span>
-  <span>v1.3.3</span>
+  <span>v1.3.4</span>
 </footer>
 
 <div class="modal-backdrop" id="styleModal" aria-hidden="true">
@@ -581,6 +586,10 @@ footer {
             <label for="ovBadges">Отображать значки (Badges)</label>
             <label class="switch"><input type="checkbox" id="ovBadges" checked><span class="track"></span></label>
           </div>
+          <div class="ctl ctl-row" style="grid-column: 1 / -1;">
+            <label for="ovHighlightRoles">Выделять стримера, модераторов и VIP</label>
+            <label class="switch"><input type="checkbox" id="ovHighlightRoles" checked><span class="track"></span></label>
+          </div>
         </div>
       </div>
 
@@ -623,7 +632,7 @@ const $ = id => document.getElementById(id);
 let lastMsgs = 0;
 // ==================== конструктор стиля оверлея ====================
 let currentObsUrl = '';
-const DEFAULTS = { font: 'Segoe UI', size: 14, gap: 6, textColor: '#efeff1', bgColor: '#0f0f12', bgOpacity: 82, showBadges: true, bg: true, hide: true, hideAfter: 30, points: '', emote: 20 };
+const DEFAULTS = { font: 'Segoe UI', size: 14, gap: 6, textColor: '#efeff1', bgColor: '#0f0f12', bgOpacity: 82, showBadges: true, highlightRoles: true, bg: true, hide: true, hideAfter: 30, points: '', emote: 20 };
 const $ovFont = $('ovFont');
 const $ovSize = $('ovSize');
 const $ovSizeVal = $('ovSizeVal');
@@ -639,6 +648,7 @@ const $ovBgOpacityVal = $('ovBgOpacityVal');
 const $ovBgColorWrap = $('ovBgColorWrap');
 const $ovBgOpacityWrap = $('ovBgOpacityWrap');
 const $ovBadges = $('ovBadges');
+const $ovHighlightRoles = $('ovHighlightRoles');
 const $pvBadgesWrap = $('pvBadgesWrap');
 const $ovHide = $('ovHide');
 const $ovHideAfter = $('ovHideAfter');
@@ -678,9 +688,9 @@ const PREVIEW_ICON =
 const _pvIco = $('pvRedeemIco');
 if (_pvIco) _pvIco.innerHTML = PREVIEW_ICON;
 
-// 1.3.1: стиль живёт на сервере. Восстанавливаем контролы из /api/style.
-fetch('/api/style')
-  // 1.4: стиль живёт на сервере. Панель в Electron открыта через file://,
+
+
+// Стиль живёт на сервере. Панель в Electron открыта через file://,
 // поэтому относительный fetch не работает — бьём абсолютным URL
 // и только когда state уже принёс адрес сервера.
 let styleLoadedOnce = false;
@@ -698,6 +708,7 @@ function loadStyleFromServer() {
       if (s.bgColor) { $ovBgColor.value = s.bgColor; $ovBgColorHex.value = s.bgColor.toUpperCase(); }
       if (s.bgOpacity != null) $ovBgOpacity.value = s.bgOpacity;
       if (typeof s.showBadges === 'boolean') $ovBadges.checked = s.showBadges;
+      if (typeof s.highlightRoles === 'boolean') $ovHighlightRoles.checked = s.highlightRoles;
       if (typeof s.bg === 'boolean') $ovBg.checked = s.bg;
       if (typeof s.hide === 'boolean') $ovHide.checked = s.hide;
       if (s.hideAfter > 0) $ovHideAfter.value = Math.round(s.hideAfter / 1000);
@@ -731,6 +742,7 @@ function summaryChips() {
          seg('зазор ' + $ovGap.value + 'px', true) +
          seg($ovBg.checked ? 'плашка ' + $ovBgOpacity.value + '%' : 'без плашки', $ovBg.checked) +
          seg($ovBadges.checked ? 'бейджи вкл' : 'бейджи выкл', $ovBadges.checked) +
+         seg($ovHighlightRoles.checked ? 'роли вкл' : 'роли выкл', $ovHighlightRoles.checked) +
          seg($ovHide.checked ? ('таймер ' + $ovHideAfter.value + 'с') : 'таймер выкл', $ovHide.checked);
 }
 
@@ -756,6 +768,7 @@ function refreshPreview() {
   $ovPreview.style.marginBottom = gap;
 
   if ($pvBadgesWrap) $pvBadgesWrap.style.display = $ovBadges.checked ? 'inline-flex' : 'none';
+  if ($ovHighlightRoles) $ovPreview.classList.toggle('role-broadcaster', $ovHighlightRoles.checked);
 
   $ovBgColorWrap.classList.toggle('disabled', !$ovBg.checked);
   $ovBgOpacityWrap.classList.toggle('disabled', !$ovBg.checked);
@@ -815,6 +828,8 @@ function saveStylePrefs() {
         bgColor: $ovBgColor.value,
         bgOpacity: parseInt($ovBgOpacity.value, 10),
         showBadges: $ovBadges.checked,
+    highlightRoles: $ovHighlightRoles.checked,
+        highlightRoles: $ovHighlightRoles.checked,
         bg: $ovBg.checked,
         hide: $ovHide.checked,
         hideAfter: parseInt($ovHideAfter.value, 10) * 1000,
@@ -848,6 +863,7 @@ function postStyleToPreview() {
     bgColor: $ovBgColor.value,
     bgOpacity: parseInt($ovBgOpacity.value, 10),
     showBadges: $ovBadges.checked,
+    highlightRoles: $ovHighlightRoles.checked,
     bg: $ovBg.checked,
     hide: $ovHide.checked,
     hideAfter: parseInt($ovHideAfter.value, 10) * 1000,
@@ -884,6 +900,7 @@ $('modalReset').addEventListener('click', () => {
   $ovBgColorHex.value = DEFAULTS.bgColor.toUpperCase();
   $ovBgOpacity.value = DEFAULTS.bgOpacity;
   $ovBadges.checked = DEFAULTS.showBadges;
+  $ovHighlightRoles.checked = DEFAULTS.highlightRoles;
   $ovBg.checked = DEFAULTS.bg;
   $ovHide.checked = DEFAULTS.hide;
   $ovHideAfter.value = DEFAULTS.hideAfter;
@@ -924,6 +941,7 @@ $ovBgColorHex.addEventListener('input', () => {
 
 $ovBgOpacity.addEventListener('input', onStyleChange);
 $ovBadges.addEventListener('change', onStyleChange);
+$ovHighlightRoles.addEventListener('change', onStyleChange);
 $ovBg.addEventListener('change', onStyleChange);
 $ovHide.addEventListener('change', onStyleChange);
 $ovHideAfter.addEventListener('input', onStyleChange);

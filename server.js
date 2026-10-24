@@ -73,6 +73,8 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   let authServer = null;
   let pendingAuthState = null;
   const userColorCache = makeLRU(500);      // userId -> цвет ника (EventSub цвет не несёт)
+  const recentEventIds = makeLRU(500);      // EventSub at-least-once: режем дубли по message_id
+  const recentDonationIds = makeLRU(200);   // DA at-least-once: режем дубли по id доната
     // --- DonationAlerts: OAuth + Centrifugo ---
   const DA_API = 'https://www.donationalerts.com/api/v1';
   const DA_REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/da/callback';
@@ -134,6 +136,7 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       daClientSecret: (daClientSecret && !daClientSecret.startsWith('••••'))
         ? daClientSecret.trim() : (old.daClientSecret || ''),
       rouletteUrl: (rouletteUrl || old.rouletteUrl || '').trim(),
+      style: old.style,
       // токены редимов и DA не приходят с формы — переносим, чтобы не потерять
       userAccessToken: old.userAccessToken,
       userRefreshToken: old.userRefreshToken,
@@ -174,7 +177,8 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     hide: true,
     hideAfter: 30000,
     points: '',
-    emote: 20
+    emote: 20,
+    highlightRoles: true
   };
 
   function getStyle() {
@@ -206,7 +210,8 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       hide: typeof b.hide === 'boolean' ? b.hide : old.hide,
       hideAfter: parseInt(b.hideAfter, 10) > 0 ? parseInt(b.hideAfter, 10) : old.hideAfter,
       points: typeof b.points === 'string' ? b.points : old.points,
-      emote: parseInt(b.emote, 10) > 0 ? parseInt(b.emote, 10) : old.emote
+      emote: parseInt(b.emote, 10) > 0 ? parseInt(b.emote, 10) : old.emote,
+      highlightRoles: typeof b.highlightRoles === 'boolean' ? b.highlightRoles : (old.highlightRoles != null ? old.highlightRoles : true)
     };
     const cfg = getConfig();
     cfg.style = next;
@@ -772,8 +777,8 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     console.log('[EventSub] subscriptions done for', broadcasterLogin);
   }
 
-  const recentEventIds = makeLRU(500); // EventSub at-least-once: режем дубли по message_id
-  const recentDonationIds = makeLRU(200); // DA at-least-once: режем дубли по id доната
+
+
   function handleNotification(payload, meta) {
     if (meta && meta.message_id) {
       if (recentEventIds.has(meta.message_id)) {
@@ -996,71 +1001,39 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
     console.log('[7TV] Emotes total:', Object.keys(emoteMap).length);
   }
 
-  // ==================== WATCHSTREAK: IRC sidecar через WebSocket ====================
-  // Сырой TLS 6697 у Twitch отдаёт чужой сертификат; рабочий транспорт —
-  // тот же, что использует tmi.js: wss://irc-ws.chat.twitch.tv:443
-  let ircRawSocket = null;
-  let ircRawStop = false;
-
-  function startWatchStreakListener(channel) {
-    ircRawStop = false;
-    if (ircRawSocket) { 
-      ircRawSocket.removeAllListeners();
-      try { ircRawSocket.close(); } catch (e) {} 
-      ircRawSocket = null; }
-    const nick = 'justinfan' + Math.floor(10000 + Math.random() * 80000);
-    let sock;
-    try { sock = new WebSocket('wss://irc-ws.chat.twitch.tv:443'); }
-    catch (e) { console.error('[IRC-raw] ws create error:', e.message); return; }
-    ircRawSocket = sock;
-    sock.on('open', () => {
-      sock.send('CAP REQ :twitch.tv/tags');
-      sock.send('PASS SCHMOOPIIE');
-      sock.send('NICK ' + nick);
-      sock.send('JOIN #' + channel);
-      console.log('[IRC-raw] connected for #' + channel);
-    });
-    sock.on('message', (raw) => handleIrcRawLine(String(raw)));
-    sock.on('error', (e) => console.error('[IRC-raw] error:', e.message));
-    sock.on('close', () => {
-      if (ircRawSocket === sock) ircRawSocket = null;
-      if (!ircRawStop) setTimeout(() => { if (!ircRawStop && state.channel) startWatchStreakListener(state.channel); }, 5000);
-    });
-  }
-
-  function handleIrcRawLine(line) {
-    if (!line) return;
-    if (line.indexOf('PING') === 0) {
-      try { ircRawSocket.send('PONG :tmi.twitch.tv'); } catch (e) {}
-      return;
-    }
-    if (line.indexOf('USERNOTICE') === -1) return;
-    const tags = {};
-    let rest = line;
-    if (rest[0] === '@') {
-      const sp = rest.indexOf(' ');
-      for (const kv of rest.slice(1, sp).split(';')) {
-        const eq = kv.indexOf('=');
-        if (eq !== -1) tags[kv.slice(0, eq)] = kv.slice(eq + 1);
-      }
-    }
-    const msgId = tags['msg-id'] || '';
+  // ==================== WATCHSTREAK: обработчик стриков просмотров ====================
+  function handleWatchStreakNotice(msgid, tags) {
+    if (!tags) return;
+    const msgId = msgid || tags['msg-id'] || '';
+    const category = tags['msg-param-category'] || '';
     const sysMsg = (tags['system-msg'] || '').replace(/\\s/g, ' ');
-    if (!(msgId === 'watchstreak' || msgId.indexOf('watch') !== -1 || /watch streak/i.test(sysMsg))) return;
-    const streak = tags['msg-param-streak'] || ((sysMsg.match(/\d+/) || [])[0] || '');
+
+    const isStreak = (
+      msgId === 'watchstreak' ||
+      msgId.indexOf('watch') !== -1 ||
+      (msgId === 'viewermilestone' && category === 'watch-streak') ||
+      category === 'watch-streak' ||
+      /watch\s*streak|стрим(ов|а)?\s+подряд/i.test(sysMsg)
+    );
+    if (!isStreak) return;
+
+    const streak = tags['msg-param-value'] || tags['msg-param-streak'] || ((sysMsg.match(/\d+/) || [])[0] || '');
     const uid = tags['user-id'] || null;
+    const username = tags['display-name'] || tags.login || tags.username || '?';
+    if (tags.color && uid) userColorCache.set(uid, tags.color);
+
     broadcast(JSON.stringify({
       type: 'watchstreak',
       data: {
         userId: uid,
-        username: tags['display-name'] || tags['login'] || '?',
-        color: (uid && userColorCache.get(uid)) || '#efeff1',
+        username,
+        color: (uid && userColorCache.get(uid)) || tags.color || '#efeff1',
         streak,
         text: sysMsg,
         timestamp: Date.now()
       }
     }));
-    console.log('[WatchStreak]', tags['display-name'] || tags['login'], '| streak:', streak);
+    console.log('[WatchStreak]', username, '| streak:', streak);
   }
 
 
@@ -1156,6 +1129,10 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       }
     });
 
+    client.on('usernotice', (msgid, ch, tags, msg) => {
+      handleWatchStreakNotice(msgid, tags);
+    });
+
     client.on('clearchat', () => {
       broadcast(JSON.stringify({
         type: 'clear_chat'
@@ -1198,7 +1175,6 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
       const channelId = await resolveTwitchUserId(currentConfig, state.channel);
       await load7TV(state.channel, channelId);
       connectChat(state.channel, currentConfig);
-      startWatchStreakListener(state.channel);
       state.emotes = Object.keys(emoteMap).length;
       state.badges = Object.keys(badgeMap).length;
       broadcast(JSON.stringify({ type: 'emotes', data: emoteMap }));
@@ -1282,8 +1258,6 @@ const REDIRECT_URI = 'http://localhost:' + AUTH_PORT + '/auth/callback';
   // Корректное завершение: рвём внешние соединения, а не бросаем их на выходе
   async function shutdown() {
     eventSubStop = true;
-    ircRawStop = true;
-    if (ircRawSocket) { try { ircRawSocket.close(); } catch (e) {} ircRawSocket = null; }
     stopDA();
     if (eventSubWs) { try { eventSubWs.close(); } catch (e) {} eventSubWs = null; }
     if (client) { try { client.disconnect().catch(() => {}); } catch (e) {} client = null; }

@@ -4,7 +4,7 @@ const _ovParams = new URLSearchParams(location.search);
 
 // 1.3.3: стиль — сервер как база, URL-параметры как переопределение (для старых OBS-ссылок)
 let ovFont = null, ovSize = 0, ovBgOff = false, ovHideOff = false, ovPoints = 'баллов', ovEmoteSize = 20;
-let ovGap = 6, ovTextColor = '#efeff1', ovBgColor = '#0f0f12', ovBgOpacity = 82, ovShowBadges = true;
+let ovGap = 6, ovTextColor = '#efeff1', ovBgColor = '#0f0f12', ovBgOpacity = 82, ovShowBadges = true, ovHighlightRoles = true;
 
 function hexToRgba(hex, alpha) {
   if (!hex || typeof hex !== 'string' || hex[0] !== '#') return `rgba(15,15,18,${alpha})`;
@@ -26,6 +26,7 @@ function applyStyleObject(s) {
   if (typeof s.bgColor === 'string' && s.bgColor) ovBgColor = s.bgColor;
   if (Number.isFinite(+s.bgOpacity) && +s.bgOpacity >= 0 && +s.bgOpacity <= 100) ovBgOpacity = +s.bgOpacity;
   if (typeof s.showBadges === 'boolean') ovShowBadges = s.showBadges;
+  if (typeof s.highlightRoles === 'boolean') ovHighlightRoles = s.highlightRoles;
   if (typeof s.bg === 'boolean') ovBgOff = !s.bg;
   if (typeof s.hide === 'boolean') ovHideOff = !s.hide;
   if (typeof s.points === 'string' && s.points.trim()) ovPoints = s.points.trim();
@@ -43,6 +44,10 @@ function applyUrlOverrides() {
   if (_ovParams.has('badges')) {
     const v = (_ovParams.get('badges') || '').toLowerCase();
     ovShowBadges = !['0', 'false', 'off', 'none', 'hide'].includes(v);
+  }
+  if (_ovParams.has('highlightRoles') || _ovParams.has('roles')) {
+    const v = (_ovParams.get('highlightRoles') || _ovParams.get('roles') || '').toLowerCase();
+    ovHighlightRoles = !['0', 'false', 'off', 'none', 'hide'].includes(v);
   }
   if (_ovParams.has('bg')) {
     const v = (_ovParams.get('bg') || '').toLowerCase();
@@ -244,6 +249,11 @@ function renderMessage(data) {
   if (data.userId) div.dataset.uid = data.userId;
   if (data.id) div.dataset.msgId = data.id;
   if (data.username) div.dataset.username = (data.username || '').toLowerCase();
+  if (Array.isArray(data.badges)) {
+    if (data.badges.some(b => b && b.name === 'broadcaster')) div.classList.add('role-broadcaster');
+    else if (data.badges.some(b => b && b.name === 'moderator')) div.classList.add('role-moderator');
+    else if (data.badges.some(b => b && b.name === 'vip')) div.classList.add('role-vip');
+  }
   div._msgData = data;
   div.innerHTML = buildMessageHTML(data);
   appendAndTrim(div);
@@ -442,6 +452,7 @@ function applyStyleVars() {
   r.setProperty('--ov-text', ovTextColor || '#efeff1');
   r.setProperty('--ov-badge-display', ovShowBadges === false ? 'none' : 'inline-flex');
   r.setProperty('--ov-emote', (ovEmoteSize || 20) + 'px');
+  chatContainer.classList.toggle('highlight-roles', !!ovHighlightRoles);
 
   if (ovBgOff) {
     r.setProperty('--ov-bg', 'transparent');
@@ -491,6 +502,7 @@ function applyOverlayStyle(d) {
   if (typeof d.bgColor === 'string' && d.bgColor) ovBgColor = d.bgColor;
   if (d.bgOpacity != null) { const o = parseInt(d.bgOpacity, 10); if (o >= 0 && o <= 100) ovBgOpacity = o; }
   if (typeof d.showBadges === 'boolean') ovShowBadges = d.showBadges;
+  if (typeof d.highlightRoles === 'boolean') ovHighlightRoles = d.highlightRoles;
   if (d.bg != null) ovBgOff = (d.bg === false || d.bg === 0 || d.bg === '0');
 
   const prevHideOff = ovHideOff;

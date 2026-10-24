@@ -215,7 +215,7 @@
       if (s.connected) {
         $redeemStatus.innerHTML =
           '<span style="color:#00f593;font-weight:700;">Подключено: </span><b style="color:#efeff1">' +
-          escapeHtmlLocal(s.login || '?') + '</b>',
+          escapeHtmlLocal(s.login || '?') + '</b>';
         $redeemBtn.textContent = 'Переподключить';
         $redeemBtn.style.opacity = '1';
         $redeemBtn.style.pointerEvents = 'auto';
